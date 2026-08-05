@@ -319,86 +319,163 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Firestore Real-time Sync
   useEffect(() => {
-    // Check if system initialized once
-    getDoc(doc(db, 'settings', 'system'))
-      .then((systemSnap) => {
-        if (!systemSnap.exists()) {
-          initialCustomers.forEach((c) =>
-            setDoc(doc(db, 'customers', c.id), cleanForFirestore(c)).catch(console.error)
+    // 1. Sync Customers
+    const unsubCust = onSnapshot(
+      collection(db, 'customers'),
+      (snapshot) => {
+        if (snapshot.empty) {
+          const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_customers`);
+          const localCusts: Customer[] =
+            saved && saved !== 'undefined' ? JSON.parse(saved) : initialCustomers;
+          if (localCusts && localCusts.length > 0) {
+            localCusts.forEach((c) => {
+              setDoc(doc(db, 'customers', c.id), cleanForFirestore(c)).catch(console.error);
+            });
+            setCustomers(localCusts);
+          } else {
+            setCustomers([]);
+          }
+        } else {
+          const custs: Customer[] = [];
+          snapshot.forEach((docSnap) => {
+            const d = docSnap.data() as Customer;
+            if (d && d.id) custs.push(d);
+          });
+          custs.sort(
+            (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
           );
-          initialDebts.forEach((d) =>
-            setDoc(doc(db, 'debts', d.id), cleanForFirestore(d)).catch(console.error)
-          );
-          initialTransactions.forEach((t) =>
-            setDoc(doc(db, 'transactions', t.id), cleanForFirestore(t)).catch(console.error)
-          );
-          initialNotifications.forEach((n) =>
-            setDoc(doc(db, 'notifications', n.id), cleanForFirestore(n)).catch(console.error)
-          );
-          setDoc(doc(db, 'settings', 'system'), { initialized: true }).catch(console.error);
+          setCustomers(custs);
         }
-      })
-      .catch(console.error);
+      },
+      (err) => console.error('Firestore customers error:', err)
+    );
 
-    const unsubCust = onSnapshot(collection(db, 'customers'), (snapshot) => {
-      if (snapshot.empty) {
-        setCustomers([]);
-      } else {
-        const custs: Customer[] = [];
-        snapshot.forEach((docSnap) => custs.push(docSnap.data() as Customer));
-        custs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setCustomers(custs);
-      }
-    }, (err) => console.error('Firestore customers error:', err));
+    // 2. Sync Debts
+    const unsubDebts = onSnapshot(
+      collection(db, 'debts'),
+      (snapshot) => {
+        if (snapshot.empty) {
+          const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_debts`);
+          const localDebts: Debt[] =
+            saved && saved !== 'undefined' ? JSON.parse(saved) : initialDebts;
+          if (localDebts && localDebts.length > 0) {
+            localDebts.forEach((d) => {
+              setDoc(doc(db, 'debts', d.id), cleanForFirestore(d)).catch(console.error);
+            });
+            setDebts(localDebts);
+          } else {
+            setDebts([]);
+          }
+        } else {
+          const dlist: Debt[] = [];
+          snapshot.forEach((docSnap) => {
+            const d = docSnap.data() as Debt;
+            if (d && d.id) dlist.push(d);
+          });
+          dlist.sort(
+            (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+          );
+          setDebts(dlist);
+        }
+      },
+      (err) => console.error('Firestore debts error:', err)
+    );
 
-    const unsubDebts = onSnapshot(collection(db, 'debts'), (snapshot) => {
-      if (snapshot.empty) {
-        setDebts([]);
-      } else {
-        const dlist: Debt[] = [];
-        snapshot.forEach((docSnap) => dlist.push(docSnap.data() as Debt));
-        dlist.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setDebts(dlist);
-      }
-    }, (err) => console.error('Firestore debts error:', err));
+    // 3. Sync Transactions
+    const unsubTx = onSnapshot(
+      collection(db, 'transactions'),
+      (snapshot) => {
+        if (snapshot.empty) {
+          const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_transactions`);
+          const localTxs: Transaction[] =
+            saved && saved !== 'undefined' ? JSON.parse(saved) : initialTransactions;
+          if (localTxs && localTxs.length > 0) {
+            localTxs.forEach((t) => {
+              setDoc(doc(db, 'transactions', t.id), cleanForFirestore(t)).catch(console.error);
+            });
+            setTransactions(localTxs);
+          } else {
+            setTransactions([]);
+          }
+        } else {
+          const txs: Transaction[] = [];
+          snapshot.forEach((docSnap) => {
+            const t = docSnap.data() as Transaction;
+            if (t && t.id) txs.push(t);
+          });
+          txs.sort(
+            (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+          );
+          setTransactions(txs);
+        }
+      },
+      (err) => console.error('Firestore transactions error:', err)
+    );
 
-    const unsubTx = onSnapshot(collection(db, 'transactions'), (snapshot) => {
-      if (snapshot.empty) {
-        setTransactions([]);
-      } else {
-        const txs: Transaction[] = [];
-        snapshot.forEach((docSnap) => txs.push(docSnap.data() as Transaction));
-        txs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setTransactions(txs);
-      }
-    }, (err) => console.error('Firestore transactions error:', err));
+    // 4. Sync Notifications
+    const unsubNotif = onSnapshot(
+      collection(db, 'notifications'),
+      (snapshot) => {
+        if (snapshot.empty) {
+          const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_notifications`);
+          const localNotifs: NotificationItem[] =
+            saved && saved !== 'undefined' ? JSON.parse(saved) : initialNotifications;
+          if (localNotifs && localNotifs.length > 0) {
+            localNotifs.forEach((n) => {
+              setDoc(doc(db, 'notifications', n.id), cleanForFirestore(n)).catch(console.error);
+            });
+            setNotifications(localNotifs);
+          } else {
+            setNotifications([]);
+          }
+        } else {
+          const notifs: NotificationItem[] = [];
+          snapshot.forEach((docSnap) => {
+            const n = docSnap.data() as NotificationItem;
+            if (n && n.id) notifs.push(n);
+          });
+          notifs.sort(
+            (a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
+          );
+          setNotifications(notifs);
+        }
+      },
+      (err) => console.error('Firestore notifications error:', err)
+    );
 
-    const unsubNotif = onSnapshot(collection(db, 'notifications'), (snapshot) => {
-      if (snapshot.empty) {
-        setNotifications([]);
-      } else {
-        const notifs: NotificationItem[] = [];
-        snapshot.forEach((docSnap) => notifs.push(docSnap.data() as NotificationItem));
-        notifs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        setNotifications(notifs);
-      }
-    }, (err) => console.error('Firestore notifications error:', err));
+    // 5. Sync Config
+    const unsubConfig = onSnapshot(
+      doc(db, 'settings', 'config'),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setConfig(docSnap.data() as AppConfig);
+        } else {
+          const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_config`);
+          const localCfg =
+            saved && saved !== 'undefined' ? { ...defaultConfig, ...JSON.parse(saved) } : defaultConfig;
+          setConfig(localCfg);
+          setDoc(doc(db, 'settings', 'config'), cleanForFirestore(localCfg)).catch(console.error);
+        }
+      },
+      (err) => console.error('Firestore config error:', err)
+    );
 
-    const unsubConfig = onSnapshot(doc(db, 'settings', 'config'), (docSnap) => {
-      if (docSnap.exists()) {
-        setConfig(docSnap.data() as AppConfig);
-      } else {
-        setDoc(doc(db, 'settings', 'config'), cleanForFirestore(defaultConfig)).catch(console.error);
-      }
-    }, (err) => console.error('Firestore config error:', err));
-
-    const unsubProfile = onSnapshot(doc(db, 'settings', 'profile'), (docSnap) => {
-      if (docSnap.exists()) {
-        setUserProfile(docSnap.data() as UserProfile);
-      } else {
-        setDoc(doc(db, 'settings', 'profile'), cleanForFirestore(defaultProfile)).catch(console.error);
-      }
-    }, (err) => console.error('Firestore profile error:', err));
+    // 6. Sync Profile
+    const unsubProfile = onSnapshot(
+      doc(db, 'settings', 'profile'),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setUserProfile(docSnap.data() as UserProfile);
+        } else {
+          const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_profile`);
+          const localProf =
+            saved && saved !== 'undefined' ? { ...defaultProfile, ...JSON.parse(saved) } : defaultProfile;
+          setUserProfile(localProf);
+          setDoc(doc(db, 'settings', 'profile'), cleanForFirestore(localProf)).catch(console.error);
+        }
+      },
+      (err) => console.error('Firestore profile error:', err)
+    );
 
     return () => {
       unsubCust();
