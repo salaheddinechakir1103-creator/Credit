@@ -1,0 +1,6 @@
+{
+  "name": "Credit Manager",
+  "description": "تطبيق إدارة الديون والزبناء والشؤون المالية بأسلوب Material 3 حديث وتفاعلي",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
