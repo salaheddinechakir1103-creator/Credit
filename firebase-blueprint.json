@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "customers": {
+      "title": "Customers",
+      "description": "Shared customer profiles and debt balances",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "totalDebt": { "type": "number" },
+        "totalPaid": { "type": "number" },
+        "lastTransactionDate": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "notes": { "type": "string" },
+        "avatarUrl": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "debts": {
+      "title": "Debts",
+      "description": "Shared customer debts and credits",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "amount": { "type": "number" },
+        "paidAmount": { "type": "number" },
+        "status": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "description": { "type": "string" },
+        "invoiceNumber": { "type": "string" }
+      },
+      "required": ["id", "customerId", "amount"]
+    },
+    "transactions": {
+      "title": "Transactions",
+      "description": "Shared payment and debt transaction logs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "debtId": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string" },
+        "date": { "type": "string" },
+        "notes": { "type": "string" },
+        "paymentMethod": { "type": "string" }
+      },
+      "required": ["id", "customerId", "amount", "type"]
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "System and payment alerts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "date": { "type": "string" },
+        "read": { "type": "boolean" },
+        "type": { "type": "string" },
+        "targetId": { "type": "string" }
+      },
+      "required": ["id", "title", "message"]
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "Shared configuration and user profile",
+      "type": "object",
+      "properties": {
+        "storeName": { "type": "string" },
+        "currency": { "type": "string" },
+        "theme": { "type": "string" }
+      }
+    }
+  }
+}

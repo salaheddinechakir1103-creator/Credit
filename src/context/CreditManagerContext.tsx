@@ -1,14 +1,21 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import {
+  collection,
+  doc,
+  onSnapshot,
+  setDoc,
+  deleteDoc,
+  writeBatch,
+} from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import {
   Customer,
   Debt,
   Transaction,
   NotificationItem,
   AppConfig,
   UserProfile,
-  Language,
-  Currency,
 } from '../types/creditManager';
 
 interface CreditManagerContextType {
@@ -299,7 +306,87 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
-  // Sync to LocalStorage
+  // Firestore Real-time Sync
+  useEffect(() => {
+    const unsubCust = onSnapshot(collection(db, 'customers'), (snapshot) => {
+      if (snapshot.empty) {
+        initialCustomers.forEach((c) => {
+          setDoc(doc(db, 'customers', c.id), c).catch(console.error);
+        });
+      } else {
+        const custs: Customer[] = [];
+        snapshot.forEach((docSnap) => custs.push(docSnap.data() as Customer));
+        custs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setCustomers(custs);
+      }
+    }, (err) => console.error('Firestore customers error:', err));
+
+    const unsubDebts = onSnapshot(collection(db, 'debts'), (snapshot) => {
+      if (snapshot.empty) {
+        initialDebts.forEach((d) => {
+          setDoc(doc(db, 'debts', d.id), d).catch(console.error);
+        });
+      } else {
+        const dlist: Debt[] = [];
+        snapshot.forEach((docSnap) => dlist.push(docSnap.data() as Debt));
+        dlist.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setDebts(dlist);
+      }
+    }, (err) => console.error('Firestore debts error:', err));
+
+    const unsubTx = onSnapshot(collection(db, 'transactions'), (snapshot) => {
+      if (snapshot.empty) {
+        initialTransactions.forEach((t) => {
+          setDoc(doc(db, 'transactions', t.id), t).catch(console.error);
+        });
+      } else {
+        const txs: Transaction[] = [];
+        snapshot.forEach((docSnap) => txs.push(docSnap.data() as Transaction));
+        txs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setTransactions(txs);
+      }
+    }, (err) => console.error('Firestore transactions error:', err));
+
+    const unsubNotif = onSnapshot(collection(db, 'notifications'), (snapshot) => {
+      if (snapshot.empty) {
+        initialNotifications.forEach((n) => {
+          setDoc(doc(db, 'notifications', n.id), n).catch(console.error);
+        });
+      } else {
+        const notifs: NotificationItem[] = [];
+        snapshot.forEach((docSnap) => notifs.push(docSnap.data() as NotificationItem));
+        notifs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setNotifications(notifs);
+      }
+    }, (err) => console.error('Firestore notifications error:', err));
+
+    const unsubConfig = onSnapshot(doc(db, 'settings', 'config'), (docSnap) => {
+      if (docSnap.exists()) {
+        setConfig(docSnap.data() as AppConfig);
+      } else {
+        setDoc(doc(db, 'settings', 'config'), defaultConfig).catch(console.error);
+      }
+    }, (err) => console.error('Firestore config error:', err));
+
+    const unsubProfile = onSnapshot(doc(db, 'settings', 'profile'), (docSnap) => {
+      if (docSnap.exists()) {
+        setUserProfile(docSnap.data() as UserProfile);
+      } else {
+        setDoc(doc(db, 'settings', 'profile'), defaultProfile).catch(console.error);
+      }
+    }, (err) => console.error('Firestore profile error:', err));
+
+    return () => {
+      unsubCust();
+      unsubDebts();
+      unsubTx();
+      unsubNotif();
+      unsubConfig();
+      unsubProfile();
+    };
+  }, []);
+
+  // Sync to LocalStorage as backup
   useEffect(() => {
     try { localStorage.setItem(`${LOCAL_STORAGE_KEY}_customers`, JSON.stringify(customers)); } catch (e) { console.error(e); }
   }, [customers]);
@@ -340,7 +427,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [userProfile]);
 
   // Customer Actions
-  const addCustomer = (data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addCustomer = async (data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>) => {
     const newCust: Customer = {
       ...data,
       id: `cust-${Date.now()}`,
@@ -348,25 +435,44 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       updatedAt: new Date().toISOString(),
     };
     setCustomers((prev) => [newCust, ...prev]);
+    try {
+      await setDoc(doc(db, 'customers', newCust.id), newCust);
+    } catch (e) {
+      console.error('Add customer firestore error:', e);
+    }
   };
 
-  const updateCustomer = (id: string, updates: Partial<Customer>) => {
+  const updateCustomer = async (id: string, updates: Partial<Customer>) => {
+    const updated = { ...updates, updatedAt: new Date().toISOString() };
     setCustomers((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c))
+      prev.map((c) => (c.id === id ? { ...c, ...updated } : c))
     );
+    try {
+      await setDoc(doc(db, 'customers', id), updated, { merge: true });
+    } catch (e) {
+      console.error('Update customer firestore error:', e);
+    }
   };
 
-  const deleteCustomer = (id: string) => {
+  const deleteCustomer = async (id: string) => {
     setCustomers((prev) => prev.filter((c) => c.id !== id));
-    // Also remove customer debts and transactions
     const customerDebtIds = debts.filter((d) => d.customerId === id).map((d) => d.id);
     setDebts((prev) => prev.filter((d) => d.customerId !== id));
     setTransactions((prev) => prev.filter((t) => !customerDebtIds.includes(t.debtId)));
     if (selectedCustomerId === id) setSelectedCustomerId(null);
+
+    try {
+      await deleteDoc(doc(db, 'customers', id));
+      for (const dId of customerDebtIds) {
+        await deleteDoc(doc(db, 'debts', dId));
+      }
+    } catch (e) {
+      console.error('Delete customer firestore error:', e);
+    }
   };
 
   // Debt Actions
-  const addDebt = (data: Omit<Debt, 'id' | 'remainingAmount' | 'status' | 'createdAt' | 'updatedAt'>) => {
+  const addDebt = async (data: Omit<Debt, 'id' | 'remainingAmount' | 'status' | 'createdAt' | 'updatedAt'>) => {
     const todayStr = new Date().toISOString().split('T')[0];
     const isOverdue = data.dueDate < todayStr;
     const newDebt: Debt = {
@@ -378,14 +484,19 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       updatedAt: new Date().toISOString(),
     };
     setDebts((prev) => [newDebt, ...prev]);
+    try {
+      await setDoc(doc(db, 'debts', newDebt.id), newDebt);
+    } catch (e) {
+      console.error('Add debt firestore error:', e);
+    }
   };
 
-  const updateDebt = (id: string, updates: Partial<Debt>) => {
+  const updateDebt = async (id: string, updates: Partial<Debt>) => {
+    let updatedObj: Debt | null = null;
     setDebts((prev) =>
       prev.map((d) => {
         if (d.id !== id) return d;
         const updated = { ...d, ...updates, updatedAt: new Date().toISOString() };
-        // recalculate status
         if (updated.remainingAmount <= 0) {
           updated.status = 'paid';
           updated.remainingAmount = 0;
@@ -395,18 +506,31 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
           const todayStr = new Date().toISOString().split('T')[0];
           updated.status = updated.dueDate < todayStr ? 'overdue' : 'unpaid';
         }
+        updatedObj = updated;
         return updated;
       })
     );
+    if (updatedObj) {
+      try {
+        await setDoc(doc(db, 'debts', id), updatedObj, { merge: true });
+      } catch (e) {
+        console.error('Update debt firestore error:', e);
+      }
+    }
   };
 
-  const deleteDebt = (id: string) => {
+  const deleteDebt = async (id: string) => {
     setDebts((prev) => prev.filter((d) => d.id !== id));
     setTransactions((prev) => prev.filter((t) => t.debtId !== id));
+    try {
+      await deleteDoc(doc(db, 'debts', id));
+    } catch (e) {
+      console.error('Delete debt firestore error:', e);
+    }
   };
 
   // Record Payment
-  const recordPayment = ({
+  const recordPayment = async ({
     debtId,
     amount,
     paymentMethod,
@@ -426,12 +550,12 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     const newRemaining = Math.max(0, debt.remainingAmount - actualPayAmount);
     const newStatus = newRemaining === 0 ? 'paid' : 'partial';
 
-    // Update debt
+    const updatedDebt = { ...debt, remainingAmount: newRemaining, status: newStatus, updatedAt: new Date().toISOString() };
+
     setDebts((prev) =>
-      prev.map((d) => (d.id === debtId ? { ...d, remainingAmount: newRemaining, status: newStatus, updatedAt: new Date().toISOString() } : d))
+      prev.map((d) => (d.id === debtId ? updatedDebt : d))
     );
 
-    // Create transaction record
     const newTx: Transaction = {
       id: `tx-${Date.now()}`,
       debtId,
@@ -446,7 +570,6 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
 
     setTransactions((prev) => [newTx, ...prev]);
 
-    // Add notification
     const cust = customers.find((c) => c.id === debt.customerId);
     const notif: NotificationItem = {
       id: `notif-${Date.now()}`,
@@ -460,7 +583,6 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     setNotifications((prev) => [notif, ...prev]);
 
-    // Celebrate with confetti if full payment!
     if (newRemaining === 0) {
       confetti({
         particleCount: 80,
@@ -468,37 +590,74 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         origin: { y: 0.6 },
       });
     }
+
+    try {
+      await setDoc(doc(db, 'debts', debtId), updatedDebt, { merge: true });
+      await setDoc(doc(db, 'transactions', newTx.id), newTx);
+      await setDoc(doc(db, 'notifications', notif.id), notif);
+    } catch (e) {
+      console.error('Record payment firestore error:', e);
+    }
   };
 
-  const deleteTransaction = (id: string) => {
+  const deleteTransaction = async (id: string) => {
     const tx = transactions.find((t) => t.id === id);
     if (!tx) return;
-    // Restore remaining amount on debt
+    let updatedDebt: Debt | null = null;
     setDebts((prev) =>
       prev.map((d) => {
         if (d.id !== tx.debtId) return d;
         const restoredRemaining = Math.min(d.amount, d.remainingAmount + tx.amount);
         const newStatus = restoredRemaining === d.amount ? 'unpaid' : 'partial';
-        return { ...d, remainingAmount: restoredRemaining, status: newStatus, updatedAt: new Date().toISOString() };
+        updatedDebt = { ...d, remainingAmount: restoredRemaining, status: newStatus, updatedAt: new Date().toISOString() };
+        return updatedDebt;
       })
     );
     setTransactions((prev) => prev.filter((t) => t.id !== id));
+    try {
+      await deleteDoc(doc(db, 'transactions', id));
+      if (updatedDebt) {
+        await setDoc(doc(db, 'debts', tx.debtId), updatedDebt, { merge: true });
+      }
+    } catch (e) {
+      console.error('Delete transaction firestore error:', e);
+    }
   };
 
   // Config & Security
-  const updateConfig = (updates: Partial<AppConfig>) => {
-    setConfig((prev) => ({ ...prev, ...updates }));
+  const updateConfig = async (updates: Partial<AppConfig>) => {
+    const newCfg = { ...config, ...updates };
+    setConfig(newCfg);
+    try {
+      await setDoc(doc(db, 'settings', 'config'), newCfg, { merge: true });
+    } catch (e) {
+      console.error('Update config firestore error:', e);
+    }
   };
 
-  const updateUserProfile = (updates: Partial<UserProfile>) => {
-    setUserProfile((prev) => ({ ...prev, ...updates }));
+  const updateUserProfile = async (updates: Partial<UserProfile>) => {
+    const newProf = { ...userProfile, ...updates };
+    setUserProfile(newProf);
+    try {
+      await setDoc(doc(db, 'settings', 'profile'), newProf, { merge: true });
+    } catch (e) {
+      console.error('Update profile firestore error:', e);
+    }
   };
 
-  const markNotificationRead = (id?: string) => {
+  const markNotificationRead = async (id?: string) => {
     if (id) {
       setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+      try {
+        await setDoc(doc(db, 'notifications', id), { read: true }, { merge: true });
+      } catch (e) {
+        console.error(e);
+      }
     } else {
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      notifications.forEach((n) => {
+        setDoc(doc(db, 'notifications', n.id), { read: true }, { merge: true }).catch(console.error);
+      });
     }
   };
 
@@ -515,7 +674,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const setPinCode = (pin: string) => {
-    setConfig((prev) => ({ ...prev, pinCode: pin }));
+    updateConfig({ pinCode: pin });
   };
 
   // Backup & Reset
@@ -549,6 +708,15 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         if (parsed.notifications) setNotifications(parsed.notifications);
         if (parsed.config) setConfig(parsed.config);
         if (parsed.userProfile) setUserProfile(parsed.userProfile);
+
+        // Upload to Firestore
+        parsed.customers.forEach((c: Customer) => setDoc(doc(db, 'customers', c.id), c).catch(console.error));
+        parsed.debts.forEach((d: Debt) => setDoc(doc(db, 'debts', d.id), d).catch(console.error));
+        if (parsed.transactions) parsed.transactions.forEach((t: Transaction) => setDoc(doc(db, 'transactions', t.id), t).catch(console.error));
+        if (parsed.notifications) parsed.notifications.forEach((n: NotificationItem) => setDoc(doc(db, 'notifications', n.id), n).catch(console.error));
+        if (parsed.config) setDoc(doc(db, 'settings', 'config'), parsed.config).catch(console.error);
+        if (parsed.userProfile) setDoc(doc(db, 'settings', 'profile'), parsed.userProfile).catch(console.error);
+
         return true;
       }
       return false;
@@ -557,7 +725,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const resetAllData = () => {
+  const resetAllData = async () => {
     setCustomers(initialCustomers);
     setDebts(initialDebts);
     setTransactions(initialTransactions);
@@ -565,6 +733,17 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     setConfig(defaultConfig);
     setUserProfile(defaultProfile);
     localStorage.clear();
+
+    try {
+      initialCustomers.forEach((c) => setDoc(doc(db, 'customers', c.id), c).catch(console.error));
+      initialDebts.forEach((d) => setDoc(doc(db, 'debts', d.id), d).catch(console.error));
+      initialTransactions.forEach((t) => setDoc(doc(db, 'transactions', t.id), t).catch(console.error));
+      initialNotifications.forEach((n) => setDoc(doc(db, 'notifications', n.id), n).catch(console.error));
+      setDoc(doc(db, 'settings', 'config'), defaultConfig).catch(console.error);
+      setDoc(doc(db, 'settings', 'profile'), defaultProfile).catch(console.error);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const triggerSync = () => {
