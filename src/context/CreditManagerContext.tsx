@@ -242,33 +242,57 @@ const defaultProfile: UserProfile = {
 
 export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [customers, setCustomers] = useState<Customer[]>(() => {
-    const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_customers`);
-    return saved ? JSON.parse(saved) : initialCustomers;
+    try {
+      const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_customers`);
+      return saved && saved !== 'undefined' ? JSON.parse(saved) : initialCustomers;
+    } catch {
+      return initialCustomers;
+    }
   });
 
   const [debts, setDebts] = useState<Debt[]>(() => {
-    const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_debts`);
-    return saved ? JSON.parse(saved) : initialDebts;
+    try {
+      const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_debts`);
+      return saved && saved !== 'undefined' ? JSON.parse(saved) : initialDebts;
+    } catch {
+      return initialDebts;
+    }
   });
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_transactions`);
-    return saved ? JSON.parse(saved) : initialTransactions;
+    try {
+      const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_transactions`);
+      return saved && saved !== 'undefined' ? JSON.parse(saved) : initialTransactions;
+    } catch {
+      return initialTransactions;
+    }
   });
 
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
-    const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_notifications`);
-    return saved ? JSON.parse(saved) : initialNotifications;
+    try {
+      const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_notifications`);
+      return saved && saved !== 'undefined' ? JSON.parse(saved) : initialNotifications;
+    } catch {
+      return initialNotifications;
+    }
   });
 
   const [config, setConfig] = useState<AppConfig>(() => {
-    const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_config`);
-    return saved ? { ...defaultConfig, ...JSON.parse(saved) } : defaultConfig;
+    try {
+      const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_config`);
+      return saved && saved !== 'undefined' ? { ...defaultConfig, ...JSON.parse(saved) } : defaultConfig;
+    } catch {
+      return defaultConfig;
+    }
   });
 
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_profile`);
-    return saved ? { ...defaultProfile, ...JSON.parse(saved) } : defaultProfile;
+    try {
+      const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_profile`);
+      return saved && saved !== 'undefined' ? { ...defaultProfile, ...JSON.parse(saved) } : defaultProfile;
+    } catch {
+      return defaultProfile;
+    }
   });
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -277,30 +301,30 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Sync to LocalStorage
   useEffect(() => {
-    localStorage.setItem(`${LOCAL_STORAGE_KEY}_customers`, JSON.stringify(customers));
+    try { localStorage.setItem(`${LOCAL_STORAGE_KEY}_customers`, JSON.stringify(customers)); } catch (e) { console.error(e); }
   }, [customers]);
 
   useEffect(() => {
-    localStorage.setItem(`${LOCAL_STORAGE_KEY}_debts`, JSON.stringify(debts));
+    try { localStorage.setItem(`${LOCAL_STORAGE_KEY}_debts`, JSON.stringify(debts)); } catch (e) { console.error(e); }
   }, [debts]);
 
   useEffect(() => {
-    localStorage.setItem(`${LOCAL_STORAGE_KEY}_transactions`, JSON.stringify(transactions));
+    try { localStorage.setItem(`${LOCAL_STORAGE_KEY}_transactions`, JSON.stringify(transactions)); } catch (e) { console.error(e); }
   }, [transactions]);
 
   useEffect(() => {
-    localStorage.setItem(`${LOCAL_STORAGE_KEY}_notifications`, JSON.stringify(notifications));
+    try { localStorage.setItem(`${LOCAL_STORAGE_KEY}_notifications`, JSON.stringify(notifications)); } catch (e) { console.error(e); }
   }, [notifications]);
 
   useEffect(() => {
-    localStorage.setItem(`${LOCAL_STORAGE_KEY}_config`, JSON.stringify(config));
+    try { localStorage.setItem(`${LOCAL_STORAGE_KEY}_config`, JSON.stringify(config)); } catch (e) { console.error(e); }
     // Apply dark class to html document
     if (config.theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else if (config.theme === 'light') {
       document.documentElement.classList.remove('dark');
     } else {
-      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         document.documentElement.classList.add('dark');
       } else {
         document.documentElement.classList.remove('dark');
@@ -312,7 +336,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [config]);
 
   useEffect(() => {
-    localStorage.setItem(`${LOCAL_STORAGE_KEY}_profile`, JSON.stringify(userProfile));
+    try { localStorage.setItem(`${LOCAL_STORAGE_KEY}_profile`, JSON.stringify(userProfile)); } catch (e) { console.error(e); }
   }, [userProfile]);
 
   // Customer Actions
