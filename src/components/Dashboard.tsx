@@ -38,14 +38,16 @@ interface DashboardProps {
   onOpenAddDebt: () => void;
   onOpenAddCustomer: () => void;
   onOpenRecordPayment: (debtId?: string) => void;
+  onOpenCreateInvoice?: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
   onOpenAddDebt,
   onOpenAddCustomer,
   onOpenRecordPayment,
+  onOpenCreateInvoice,
 }) => {
-  const { customers, debts, transactions, config, setActiveTab, setSelectedCustomerId } = useCreditManager();
+  const { customers, debts, transactions, invoices, config, setActiveTab, setSelectedCustomerId } = useCreditManager();
   const t = getTranslation(config.language);
 
   // Calculations
@@ -217,6 +219,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <p className="text-xs text-indigo-200">سجل دينًا جديدًا، أضف زبونًا أو سجل عملية أداء بنقرة واحدة</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {onOpenCreateInvoice && (
+            <button
+              onClick={onOpenCreateInvoice}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-500/30 hover:bg-indigo-500/50 text-white border border-indigo-300/40 shadow transition-all active:scale-95"
+            >
+              <Receipt className="w-4 h-4 text-indigo-300" />
+              <span>فاتورة جديدة (زيادة تلقائية)</span>
+            </button>
+          )}
           <button
             onClick={onOpenAddDebt}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white text-indigo-900 hover:bg-indigo-50 shadow transition-all active:scale-95"

@@ -19,18 +19,21 @@ import {
 import { useCreditManager } from '../context/CreditManagerContext';
 import { formatCurrency, formatDate, daysUntil } from '../utils/formatters';
 import { getTranslation } from '../utils/translations';
-import { Debt, DebtStatus, DebtType } from '../types/creditManager';
+import { WhatsAppMessageModal, WhatsAppTemplateType } from './WhatsAppMessageModal';
+import { Debt, DebtStatus, DebtType, Customer } from '../types/creditManager';
 
 interface DebtListProps {
   onOpenAddDebt: () => void;
   onEditDebt: (debt: Debt) => void;
   onOpenRecordPayment: (debtId: string, customerId?: string) => void;
+  onOpenCreateInvoice?: (customerId?: string) => void;
 }
 
 export const DebtList: React.FC<DebtListProps> = ({
   onOpenAddDebt,
   onEditDebt,
   onOpenRecordPayment,
+  onOpenCreateInvoice,
 }) => {
   const { debts, customers, config, searchQuery, setSearchQuery, deleteDebt, setSelectedCustomerId } =
     useCreditManager();
@@ -38,6 +41,11 @@ export const DebtList: React.FC<DebtListProps> = ({
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [whatsAppModalData, setWhatsAppModalData] = useState<{
+    customer: Customer;
+    debtId?: string;
+    template?: WhatsAppTemplateType;
+  } | null>(null);
 
   const filteredDebts = debts.filter((d) => {
     const cust = customers.find((c) => c.id === d.customerId);
@@ -75,13 +83,25 @@ export const DebtList: React.FC<DebtListProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={onOpenAddDebt}
-          className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow transition-all active:scale-95"
-        >
-          <Plus className="w-4 h-4" />
-          <span>{t.addDebt}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {onOpenCreateInvoice && (
+            <button
+              onClick={() => onOpenCreateInvoice()}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/70 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800 rounded-xl transition-all active:scale-95"
+            >
+              <Receipt className="w-4 h-4" />
+              <span>فاتورة جديدة (زيادة تلقائية)</span>
+            </button>
+          )}
+
+          <button
+            onClick={onOpenAddDebt}
+            className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow transition-all active:scale-95"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{t.addDebt}</span>
+          </button>
+        </div>
       </div>
 
       {/* Search & Filters Controls */}
@@ -321,6 +341,27 @@ export const DebtList: React.FC<DebtListProps> = ({
                       </button>
                     )}
 
+                    {cust && (
+                      <button
+                        onClick={() =>
+                          setWhatsAppModalData({
+                            customer: cust,
+                            debtId: debt.id,
+                            template:
+                              daysLeft <= 3 && daysLeft >= 0
+                                ? 'due_soon'
+                                : debt.remainingAmount > 0
+                                ? 'gentle_reminder'
+                                : 'appreciation',
+                          })
+                        }
+                        className="p-2 text-emerald-600 hover:text-emerald-700 bg-emerald-50 dark:bg-emerald-950/80 hover:bg-emerald-100 rounded-xl transition-all shadow-xs"
+                        title="إرسال إشعار أو تذكير راقٍ عبر واتساب"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                      </button>
+                    )}
+
                     <button
                       onClick={() => onEditDebt(debt)}
                       className="p-2 text-slate-400 hover:text-indigo-600 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
@@ -344,6 +385,16 @@ export const DebtList: React.FC<DebtListProps> = ({
             );
           })}
         </div>
+      )}
+
+      {/* WhatsApp Message Modal */}
+      {whatsAppModalData && (
+        <WhatsAppMessageModal
+          customer={whatsAppModalData.customer}
+          defaultDebtId={whatsAppModalData.debtId}
+          initialTemplate={whatsAppModalData.template || 'gentle_reminder'}
+          onClose={() => setWhatsAppModalData(null)}
+        />
       )}
     </div>
   );

@@ -13,16 +13,20 @@ import {
   Plus,
   Receipt,
   MoreVertical,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useCreditManager } from '../context/CreditManagerContext';
-import { formatCurrency, getWhatsAppUrl, getCallUrl, getSmsUrl } from '../utils/formatters';
+import { formatCurrency, getCallUrl, getSmsUrl } from '../utils/formatters';
 import { getTranslation } from '../utils/translations';
+import { exportFullReportToExcel } from '../utils/excelExport';
+import { WhatsAppMessageModal } from './WhatsAppMessageModal';
 import { Customer } from '../types/creditManager';
 
 interface CustomerListProps {
   onOpenAddCustomer: () => void;
   onEditCustomer: (customer: Customer) => void;
   onOpenAddDebtForCustomer: (customerId: string) => void;
+  onOpenCreateInvoiceForCustomer?: (customerId: string) => void;
   onOpenRecordPaymentForCustomer: (customerId: string) => void;
 }
 
@@ -30,6 +34,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
   onOpenAddCustomer,
   onEditCustomer,
   onOpenAddDebtForCustomer,
+  onOpenCreateInvoiceForCustomer,
   onOpenRecordPaymentForCustomer,
 }) => {
   const { customers, debts, config, searchQuery, setSearchQuery, setSelectedCustomerId, deleteCustomer } =
@@ -37,6 +42,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
   const t = getTranslation(config.language);
 
   const [filterType, setFilterType] = useState<'all' | 'debtors' | 'creditors'>('all');
+  const [selectedWhatsAppCustomer, setSelectedWhatsAppCustomer] = useState<Customer | null>(null);
 
   // Filter customers based on search query and filterType
   const filteredCustomers = customers.filter((cust) => {
@@ -74,13 +80,32 @@ export const CustomerList: React.FC<CustomerListProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={onOpenAddCustomer}
-          className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow transition-all active:scale-95"
-        >
-          <Plus className="w-4 h-4" />
-          <span>{t.addCustomer}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() =>
+              exportFullReportToExcel({
+                customers,
+                debts,
+                transactions: [],
+                config,
+                userProfile: { name: 'المسؤول', businessName: 'متجر الأمانة', phone: '', email: '', avatarUrl: '' },
+              })
+            }
+            className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/80 border border-teal-200 dark:border-teal-800 rounded-xl hover:bg-teal-100 transition-all shadow-sm active:scale-95"
+            title="تصدير جدول الزبناء إلى Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-teal-600" />
+            <span>Excel</span>
+          </button>
+
+          <button
+            onClick={onOpenAddCustomer}
+            className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow transition-all active:scale-95"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{t.addCustomer}</span>
+          </button>
+        </div>
       </div>
 
       {/* Search & Tabs filter */}
@@ -240,16 +265,14 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                       <Phone className="w-3.5 h-3.5 text-emerald-500" />
                       <span>{t.call}</span>
                     </a>
-                    <a
-                      href={getWhatsAppUrl(cust.phone, whatsappMessage)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/80 hover:bg-emerald-100 rounded-lg transition-all"
-                      title={t.whatsapp}
+                    <button
+                      onClick={() => setSelectedWhatsAppCustomer(cust)}
+                      className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/80 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 rounded-lg transition-all active:scale-95 shadow-xs"
+                      title="إرسال رسالة وكشف حساب مفصل مع عبارات راقية عبر واتساب"
                     >
-                      <MessageCircle className="w-3.5 h-3.5 text-emerald-500" />
+                      <MessageCircle className="w-3.5 h-3.5 text-emerald-600 fill-emerald-100 dark:fill-emerald-900" />
                       <span>{t.whatsapp}</span>
-                    </a>
+                    </button>
                     <a
                       href={getSmsUrl(cust.phone)}
                       className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-all"
@@ -261,15 +284,25 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                   </div>
                 </div>
 
-                {/* Bottom View Details & Add Debt / Payment Buttons */}
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                {/* Bottom View Details & Add Debt / Payment / Invoice Buttons */}
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1.5">
                   <button
                     onClick={() => setSelectedCustomerId(cust.id)}
-                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 rounded-xl hover:bg-indigo-100 transition-all"
+                    className="flex-1 flex items-center justify-center gap-1 px-2.5 py-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 rounded-xl hover:bg-indigo-100 transition-all"
                   >
                     <Eye className="w-3.5 h-3.5" />
                     <span>{t.customerDetails}</span>
                   </button>
+
+                  {onOpenCreateInvoiceForCustomer && (
+                    <button
+                      onClick={() => onOpenCreateInvoiceForCustomer(cust.id)}
+                      className="p-2 text-indigo-600 dark:text-indigo-400 bg-indigo-50/70 hover:bg-indigo-100 dark:bg-indigo-950/50 rounded-xl transition-all border border-indigo-200/50 dark:border-indigo-800/50"
+                      title="إنشاء فاتورة وزيادة الدين تلقائياً"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    </button>
+                  )}
 
                   <button
                     onClick={() => onOpenAddDebtForCustomer(cust.id)}
@@ -291,6 +324,14 @@ export const CustomerList: React.FC<CustomerListProps> = ({
             );
           })}
         </div>
+      )}
+
+      {/* WhatsApp Custom & Detailed Message Modal */}
+      {selectedWhatsAppCustomer && (
+        <WhatsAppMessageModal
+          customer={selectedWhatsAppCustomer}
+          onClose={() => setSelectedWhatsAppCustomer(null)}
+        />
       )}
     </div>
   );

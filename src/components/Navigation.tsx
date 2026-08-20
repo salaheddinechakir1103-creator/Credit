@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Users,
   Receipt,
+  FileSpreadsheet,
   History,
   BarChart3,
   Settings,
@@ -13,7 +14,7 @@ import { useCreditManager } from '../context/CreditManagerContext';
 import { getTranslation } from '../utils/translations';
 
 export const Navigation: React.FC = () => {
-  const { activeTab, setActiveTab, config, debts } = useCreditManager();
+  const { activeTab, setActiveTab, config, debts, invoices } = useCreditManager();
   const t = getTranslation(config.language);
 
   // Overdue count badge
@@ -28,6 +29,7 @@ export const Navigation: React.FC = () => {
       icon: Receipt,
       badge: overdueCount > 0 ? overdueCount : undefined,
     },
+    { id: 'invoices', label: 'الفواتير', icon: FileSpreadsheet },
     { id: 'transactions', label: t.transactions, icon: History },
     { id: 'reports', label: t.reports, icon: BarChart3 },
     { id: 'settings', label: t.settings, icon: Settings },

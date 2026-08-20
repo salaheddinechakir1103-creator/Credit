@@ -49,6 +49,37 @@ export interface Transaction {
   createdAt: string;
 }
 
+export interface InvoiceItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+export type InvoicePaymentType = 'credit' | 'partial' | 'cash';
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  customerId: string;
+  date: string;
+  dueDate?: string;
+  items: InvoiceItem[];
+  subtotal: number;
+  discount: number;
+  tax: number;
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  paymentType: InvoicePaymentType;
+  paymentMethod?: PaymentMethod;
+  debtId?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface NotificationItem {
   id: string;
   debtId?: string;

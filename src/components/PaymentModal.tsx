@@ -19,11 +19,13 @@ import {
   UserX,
   ArrowRight,
   Phone,
+  MessageCircle,
 } from 'lucide-react';
 import { useCreditManager } from '../context/CreditManagerContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { getTranslation } from '../utils/translations';
-import { PaymentMethod } from '../types/creditManager';
+import { WhatsAppMessageModal } from './WhatsAppMessageModal';
+import { PaymentMethod, Customer, Transaction } from '../types/creditManager';
 
 interface PaymentModalProps {
   defaultDebtId?: string;
@@ -106,6 +108,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     new Date().toISOString().split('T')[0]
   );
   const [notes, setNotes] = useState<string>('');
+  const [completedPaymentCustomer, setCompletedPaymentCustomer] = useState<Customer | null>(null);
+  const [openReceiptWhatsApp, setOpenReceiptWhatsApp] = useState<boolean>(false);
 
   const handleSelectCustomer = (cId: string) => {
     setSelectedCustomerId(cId);
@@ -146,7 +150,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       paymentDate,
     });
 
-    onClose();
+    const cust = customers.find((c) => c.id === selectedCustomerId);
+    if (cust) {
+      setCompletedPaymentCustomer(cust);
+    } else {
+      onClose();
+    }
   };
 
   // If a specific customer is designated or picked, we show ONLY the concerned customer form
@@ -178,8 +187,58 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </button>
         </div>
 
-        {/* Form Body */}
-        {debtorCustomers.length === 0 ? (
+        {/* Form Body or Success Body */}
+        {completedPaymentCustomer ? (
+          <div className="p-6 sm:p-8 text-center space-y-5 animate-in fade-in zoom-in duration-200">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
+              <CheckCircle2 className="w-10 h-10" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                تم تسجيل وتوثيق عملية الأداء بنجاح!
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                تم تحديث رصيد الزبون <strong className="text-slate-800 dark:text-slate-200">{completedPaymentCustomer.name}</strong> بمبلغ{' '}
+                <strong className="text-emerald-600 font-mono">{formatCurrency(parseFloat(amount) || 0, config.currency, config.language)}</strong>
+              </p>
+            </div>
+
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 text-start space-y-2 text-xs">
+              <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
+                <span>المستلم:</span>
+                <span className="font-bold">{completedPaymentCustomer.name}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
+                <span>المبلغ المؤدى:</span>
+                <span className="font-extrabold text-emerald-600 font-mono">
+                  {formatCurrency(parseFloat(amount) || 0, config.currency, config.language)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
+                <span>تاريخ الأداء:</span>
+                <span>{paymentDate}</span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                onClick={() => setOpenReceiptWhatsApp(true)}
+                className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 px-5 py-3 text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-lg shadow-emerald-600/30 transition-all active:scale-95"
+              >
+                <MessageCircle className="w-4 h-4 fill-current" />
+                <span>إرسال وصل الأداء عبر WhatsApp</span>
+              </button>
+
+              <button
+                onClick={onClose}
+                className="w-full sm:w-auto px-5 py-3 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+              >
+                تم / إغلاق
+              </button>
+            </div>
+          </div>
+        ) : debtorCustomers.length === 0 ? (
           <div className="p-8 text-center">
             <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-1">
@@ -454,6 +513,18 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </form>
         )}
       </div>
+
+      {/* WhatsApp Receipt Message Modal */}
+      {openReceiptWhatsApp && completedPaymentCustomer && (
+        <WhatsAppMessageModal
+          customer={completedPaymentCustomer}
+          initialTemplate="payment_receipt"
+          onClose={() => {
+            setOpenReceiptWhatsApp(false);
+            onClose();
+          }}
+        />
+      )}
     </div>
   );
 };

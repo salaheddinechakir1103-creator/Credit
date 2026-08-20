@@ -9,6 +9,8 @@ import { DebtList } from './components/DebtList';
 import { AddDebtModal } from './components/AddDebtModal';
 import { AddCustomerModal } from './components/AddCustomerModal';
 import { PaymentModal } from './components/PaymentModal';
+import { InvoiceList } from './components/InvoiceList';
+import { CreateInvoiceModal } from './components/CreateInvoiceModal';
 import { TransactionsList } from './components/TransactionsList';
 import { ReportsView } from './components/ReportsView';
 import { BackupSecurityModal } from './components/BackupSecurityModal';
@@ -17,13 +19,8 @@ import { NotificationsModal } from './components/NotificationsModal';
 import { LockScreen } from './components/LockScreen';
 import { Customer, Debt } from './types/creditManager';
 
-const AppContent: React.FC = () => {
-  const { activeTab, selectedCustomerId, setSelectedCustomerId, config } = useCreditManager();
-
-  // If locked, render exclusively the LockScreen without mounting sensitive workspace data
-  if (config.isLocked) {
-    return <LockScreen />;
-  }
+const MainWorkspace: React.FC = () => {
+  const { activeTab, selectedCustomerId, setSelectedCustomerId } = useCreditManager();
 
   // Modals state
   const [isAddDebtOpen, setIsAddDebtOpen] = useState(false);
@@ -36,6 +33,9 @@ const AppContent: React.FC = () => {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [paymentDebtId, setPaymentDebtId] = useState<string | undefined>(undefined);
   const [paymentCustomerId, setPaymentCustomerId] = useState<string | undefined>(undefined);
+
+  const [isCreateInvoiceOpen, setIsCreateInvoiceOpen] = useState(false);
+  const [createInvoiceCustomerId, setCreateInvoiceCustomerId] = useState<string | undefined>(undefined);
 
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
@@ -70,11 +70,18 @@ const AppContent: React.FC = () => {
     setIsPaymentOpen(true);
   };
 
+  // Handlers for Create Invoice
+  const handleOpenCreateInvoice = (customerId?: string) => {
+    setCreateInvoiceCustomerId(customerId);
+    setIsCreateInvoiceOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
       {/* Header Bar */}
       <Header
         onOpenAddDebt={() => handleOpenAddDebt()}
+        onOpenCreateInvoice={() => handleOpenCreateInvoice()}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
       />
 
@@ -90,6 +97,7 @@ const AppContent: React.FC = () => {
               onOpenAddDebt={() => handleOpenAddDebt()}
               onOpenAddCustomer={handleOpenAddCustomer}
               onOpenRecordPayment={handleOpenRecordPayment}
+              onOpenCreateInvoice={() => handleOpenCreateInvoice()}
             />
           )}
 
@@ -98,6 +106,7 @@ const AppContent: React.FC = () => {
               onOpenAddCustomer={handleOpenAddCustomer}
               onEditCustomer={handleOpenEditCustomer}
               onOpenAddDebtForCustomer={(cId) => handleOpenAddDebt(cId)}
+              onOpenCreateInvoiceForCustomer={(cId) => handleOpenCreateInvoice(cId)}
               onOpenRecordPaymentForCustomer={(cId) => handleOpenRecordPayment(undefined, cId)}
             />
           )}
@@ -107,7 +116,12 @@ const AppContent: React.FC = () => {
               onOpenAddDebt={() => handleOpenAddDebt()}
               onEditDebt={handleOpenEditDebt}
               onOpenRecordPayment={(dId, cId) => handleOpenRecordPayment(dId, cId)}
+              onOpenCreateInvoice={(cId) => handleOpenCreateInvoice(cId)}
             />
+          )}
+
+          {activeTab === 'invoices' && (
+            <InvoiceList onOpenCreateInvoice={handleOpenCreateInvoice} />
           )}
 
           {activeTab === 'transactions' && <TransactionsList />}
@@ -126,6 +140,17 @@ const AppContent: React.FC = () => {
           debtToEdit={debtToEdit}
           defaultCustomerId={addDebtCustomerId}
           onClose={() => setIsAddDebtOpen(false)}
+          onOpenCreateInvoice={() => {
+            setIsAddDebtOpen(false);
+            handleOpenCreateInvoice(addDebtCustomerId);
+          }}
+        />
+      )}
+
+      {isCreateInvoiceOpen && (
+        <CreateInvoiceModal
+          defaultCustomerId={createInvoiceCustomerId}
+          onClose={() => setIsCreateInvoiceOpen(false)}
         />
       )}
 
@@ -148,6 +173,7 @@ const AppContent: React.FC = () => {
         <CustomerDetailModal
           onClose={() => setSelectedCustomerId(null)}
           onOpenAddDebtForCustomer={(cId) => handleOpenAddDebt(cId)}
+          onOpenCreateInvoiceForCustomer={(cId) => handleOpenCreateInvoice(cId)}
           onOpenRecordPayment={(dId, cId) => handleOpenRecordPayment(dId, cId)}
         />
       )}
@@ -157,6 +183,16 @@ const AppContent: React.FC = () => {
       )}
     </div>
   );
+};
+
+const AppContent: React.FC = () => {
+  const { config } = useCreditManager();
+
+  if (config.isLocked) {
+    return <LockScreen />;
+  }
+
+  return <MainWorkspace />;
 };
 
 export default function App() {

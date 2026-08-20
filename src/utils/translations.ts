@@ -116,6 +116,24 @@ export const translations = {
     confirmDelete: 'هل أنت تأكد من إجراء الحذف؟ لا يمكن التراجع عنه.',
     confirmClearData: 'هل أنت متأكد من مسح كافة بيانات التطبيق واستعادة الضبط الأولي؟',
 
+    invoices: 'الفواتير',
+    createInvoice: 'إنشاء فاتورة لزبون',
+    invoiceNumber: 'رقم الفاتورة',
+    invoiceDate: 'تاريخ الفاتورة',
+    invoiceItems: 'قائمة المواد / السلع',
+    invoiceTotal: 'المبلغ الإجمالي للفاتورة',
+    invoicePaid: 'المبلغ المسدد مسبقاً (تسبيق)',
+    invoiceRemaining: 'المبلغ المتبقي المضاف للكريدي',
+    addItem: 'إضافة مادة / سلعة',
+    itemName: 'اسم المادة / السلعة',
+    quantity: 'الكمية',
+    unitPrice: 'سعر الوحدة',
+    itemTotal: 'المجموع',
+    paymentTypeCredit: 'على الحساب (كريدي تلقائي)',
+    paymentTypePartial: 'تسبيق + باقي كريدي',
+    paymentTypeCash: 'مدفوعة كاش بالكامل',
+    invoiceCreatedSuccess: 'تم إنشاء الفاتورة وإضافة رصيد الدين تلقائياً للزبون!',
+
     // Notifications
     reminderNotice: 'تذكير: هناك ديون قريبة الاستحقاق!',
     overdueNotice: 'تنبيه: هناك ديون تجاوزت موعد الاستحقاق!',
@@ -124,7 +142,7 @@ export const translations = {
 
     // WhatsApp Reminder Template
     whatsappReminder: (name: string, amount: string, currency: string, dueDate: string) =>
-      `السلام عليكم ورحمة الله، الأستاذ/ة ${name}. نذكركم بلطف بأنه يوجد مبلغ مستحق بقيمة ${amount} ${currency}، وتاريخ الاستحقاق هو ${dueDate}. شكراً لتعاونكم الطيب.`,
+      `السلام عليكم ورحمة الله وبركاته 🌹\nأخي الفاضل / أختي الكريمة: *${name}*\nتحية طيبة مباركة ملؤها التقدير والاحترام ✨\n\nنود تذكيركم بلطف وبكل مودة بأن الرصيد المسجل بذمتكم الكريمة هو: *${amount}* (${currency})\nتاريخ الاستحقاق: ${dueDate}\n\nنحن دائماً في خدمتكم ويسرنا تواصلكم في أي وقت يناسبكم. بارك الله لكم في رزقكم وأهلكم وجزاكم الله عنا كل خير 🤲🌸`,
   },
 
   fr: {

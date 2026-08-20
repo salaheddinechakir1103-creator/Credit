@@ -23,12 +23,14 @@ interface AddDebtModalProps {
   debtToEdit?: Debt | null;
   defaultCustomerId?: string;
   onClose: () => void;
+  onOpenCreateInvoice?: () => void;
 }
 
 export const AddDebtModal: React.FC<AddDebtModalProps> = ({
   debtToEdit,
   defaultCustomerId,
   onClose,
+  onOpenCreateInvoice,
 }) => {
   const { customers, debts, addDebt, updateDebt, config } = useCreditManager();
   const t = getTranslation(config.language);
@@ -361,6 +363,21 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
           </div>
 
           {/* Buttons */}
+          {onOpenCreateInvoice && !debtToEdit && (
+            <div className="p-3 bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 rounded-xl flex items-center justify-between gap-2">
+              <span className="text-xs text-indigo-900 dark:text-indigo-200">
+                هل تفضل تحرير فاتورة مفصلة مع قائمة السلع والأسعار والضريبة؟
+              </span>
+              <button
+                type="button"
+                onClick={onOpenCreateInvoice}
+                className="text-xs font-bold px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shrink-0"
+              >
+                إنشاء فاتورة
+              </button>
+            </div>
+          )}
+
           <div className="pt-4 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"

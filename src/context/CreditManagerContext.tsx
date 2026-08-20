@@ -15,6 +15,8 @@ import {
   Debt,
   DebtStatus,
   Transaction,
+  Invoice,
+  InvoiceItem,
   NotificationItem,
   AppConfig,
   UserProfile,
@@ -34,6 +36,7 @@ interface CreditManagerContextType {
   customers: Customer[];
   debts: Debt[];
   transactions: Transaction[];
+  invoices: Invoice[];
   notifications: NotificationItem[];
   config: AppConfig;
   userProfile: UserProfile;
@@ -56,6 +59,11 @@ interface CreditManagerContextType {
   updateDebt: (id: string, updates: Partial<Debt>) => void;
   deleteDebt: (id: string) => void;
   consolidateCustomerDebts: (customerId: string) => Promise<void>;
+
+  // Invoices & Automatic Debt Generation
+  createInvoice: (invoiceData: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt' | 'debtId'> & { debtId?: string }) => Promise<Invoice>;
+  updateInvoice: (id: string, updates: Partial<Invoice>) => Promise<void>;
+  deleteInvoice: (id: string, deleteLinkedDebt?: boolean) => Promise<void>;
 
   // Transactions & Payments
   recordPayment: (payment: {
@@ -219,6 +227,54 @@ const initialTransactions: Transaction[] = [
   }
 ];
 
+const initialInvoices: Invoice[] = [
+  {
+    id: 'inv-1',
+    invoiceNumber: 'FAC-2026-001',
+    customerId: 'cust-1',
+    date: new Date(Date.now() - 20 * 86400000).toISOString().split('T')[0],
+    dueDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
+    items: [
+      { id: 'item-1', name: 'زيت المائدة 5 لتر (كرتون)', quantity: 5, unitPrice: 320, total: 1600 },
+      { id: 'item-2', name: 'سكر قوالب 25 كلغ (أكياس)', quantity: 3, unitPrice: 240, total: 720 },
+      { id: 'item-3', name: 'دقيق ممتاز 50 كلغ', quantity: 4, unitPrice: 295, total: 1180 },
+    ],
+    subtotal: 3500,
+    discount: 0,
+    tax: 0,
+    totalAmount: 3500,
+    paidAmount: 2000,
+    remainingAmount: 1500,
+    paymentType: 'partial',
+    debtId: 'debt-1',
+    notes: 'بون مشتريات الجملة للأسبوع الثالث',
+    createdAt: new Date(Date.now() - 20 * 86400000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'inv-2',
+    invoiceNumber: 'FAC-2026-002',
+    customerId: 'cust-3',
+    date: new Date(Date.now() - 25 * 86400000).toISOString().split('T')[0],
+    dueDate: new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0],
+    items: [
+      { id: 'item-4', name: 'قفطان مغربي مطرز أصيل', quantity: 1, unitPrice: 1500, total: 1500 },
+      { id: 'item-5', name: 'جلابة نسائية صوفية ممتازة', quantity: 1, unitPrice: 900, total: 900 },
+    ],
+    subtotal: 2400,
+    discount: 0,
+    tax: 0,
+    totalAmount: 2400,
+    paidAmount: 0,
+    remainingAmount: 2400,
+    paymentType: 'credit',
+    debtId: 'debt-3',
+    notes: 'طلبية خاصة مع التسليم',
+    createdAt: new Date(Date.now() - 25 * 86400000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
 const initialNotifications: NotificationItem[] = [
   {
     id: 'notif-1',
@@ -287,6 +343,15 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       return saved && saved !== 'undefined' ? JSON.parse(saved) : initialTransactions;
     } catch {
       return initialTransactions;
+    }
+  });
+
+  const [invoices, setInvoices] = useState<Invoice[]>(() => {
+    try {
+      const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_invoices`);
+      return saved && saved !== 'undefined' ? JSON.parse(saved) : initialInvoices;
+    } catch {
+      return initialInvoices;
     }
   });
 
@@ -422,7 +487,38 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       (err) => console.error('Firestore transactions error:', err)
     );
 
-    // 4. Sync Notifications
+    // 4. Sync Invoices
+    const unsubInvoices = onSnapshot(
+      collection(db, 'invoices'),
+      (snapshot) => {
+        if (snapshot.empty) {
+          const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_invoices`);
+          const localInvs: Invoice[] =
+            saved && saved !== 'undefined' ? JSON.parse(saved) : initialInvoices;
+          if (localInvs && localInvs.length > 0) {
+            localInvs.forEach((inv) => {
+              setDoc(doc(db, 'invoices', inv.id), cleanForFirestore(inv)).catch(console.error);
+            });
+            setInvoices(localInvs);
+          } else {
+            setInvoices([]);
+          }
+        } else {
+          const invs: Invoice[] = [];
+          snapshot.forEach((docSnap) => {
+            const inv = docSnap.data() as Invoice;
+            if (inv && inv.id) invs.push(inv);
+          });
+          invs.sort(
+            (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+          );
+          setInvoices(invs);
+        }
+      },
+      (err) => console.error('Firestore invoices error:', err)
+    );
+
+    // 5. Sync Notifications
     const unsubNotif = onSnapshot(
       collection(db, 'notifications'),
       (snapshot) => {
@@ -501,6 +597,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       unsubCust();
       unsubDebts();
       unsubTx();
+      unsubInvoices();
       unsubNotif();
       unsubConfig();
       unsubProfile();
@@ -519,6 +616,10 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     try { localStorage.setItem(`${LOCAL_STORAGE_KEY}_transactions`, JSON.stringify(transactions)); } catch (e) { console.error(e); }
   }, [transactions]);
+
+  useEffect(() => {
+    try { localStorage.setItem(`${LOCAL_STORAGE_KEY}_invoices`, JSON.stringify(invoices)); } catch (e) { console.error(e); }
+  }, [invoices]);
 
   useEffect(() => {
     try { localStorage.setItem(`${LOCAL_STORAGE_KEY}_notifications`, JSON.stringify(notifications)); } catch (e) { console.error(e); }
@@ -730,6 +831,179 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  // Invoices Management & Automatic Debt Increment
+  const createInvoice = async (
+    data: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt' | 'debtId'> & { debtId?: string }
+  ): Promise<Invoice> => {
+    const invId = `inv-${Date.now()}`;
+    const nowIso = new Date().toISOString();
+    let generatedDebtId = data.debtId;
+
+    // Automatic Debt Generation: When invoice has remaining unpaid balance (credit or partial)
+    if (data.remainingAmount > 0) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const isOverdue = data.dueDate ? data.dueDate < todayStr : false;
+      const debtId = `debt-inv-${Date.now()}`;
+      generatedDebtId = debtId;
+
+      const itemsSummary = data.items.map((it) => `${it.name} (${it.quantity}x)`).join('، ');
+
+      const newDebt: Debt = {
+        id: debtId,
+        customerId: data.customerId,
+        type: 'lya',
+        amount: data.totalAmount,
+        remainingAmount: data.remainingAmount,
+        date: data.date,
+        dueDate: data.dueDate || new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0],
+        status: data.paidAmount > 0 ? 'partial' : isOverdue ? 'overdue' : 'unpaid',
+        category: `فاتورة مشتريات #${data.invoiceNumber}`,
+        notes: `فاتورة #${data.invoiceNumber}: ${itemsSummary}${data.notes ? ` | ${data.notes}` : ''}`,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+
+      setDebts((prev) => [newDebt, ...prev]);
+      try {
+        await setDoc(doc(db, 'debts', newDebt.id), cleanForFirestore(newDebt));
+      } catch (e) {
+        console.error('Create invoice debt firestore error:', e);
+      }
+
+      // If down payment was made (paidAmount > 0), also record transaction
+      if (data.paidAmount > 0) {
+        const txId = `tx-inv-${Date.now()}`;
+        const newTx: Transaction = {
+          id: txId,
+          debtId: debtId,
+          customerId: data.customerId,
+          amount: data.paidAmount,
+          paymentDate: data.date,
+          paymentMethod: data.paymentMethod || 'cash',
+          notes: `تسبيق / دفعة مسبقة عن الفاتورة #${data.invoiceNumber}`,
+          receiptNumber: `REC-${data.invoiceNumber}`,
+          createdAt: nowIso,
+        };
+        setTransactions((prev) => [newTx, ...prev]);
+        try {
+          await setDoc(doc(db, 'transactions', newTx.id), cleanForFirestore(newTx));
+        } catch (e) {
+          console.error('Create invoice tx firestore error:', e);
+        }
+      }
+    } else if (data.paidAmount === data.totalAmount && data.totalAmount > 0) {
+      // Fully paid cash invoice
+      const debtId = `debt-inv-${Date.now()}`;
+      generatedDebtId = debtId;
+      const itemsSummary = data.items.map((it) => `${it.name} (${it.quantity}x)`).join('، ');
+
+      const newDebt: Debt = {
+        id: debtId,
+        customerId: data.customerId,
+        type: 'lya',
+        amount: data.totalAmount,
+        remainingAmount: 0,
+        date: data.date,
+        dueDate: data.date,
+        status: 'paid',
+        category: `فاتورة نقدية #${data.invoiceNumber}`,
+        notes: `فاتورة #${data.invoiceNumber} (مدفوعة كاش): ${itemsSummary}`,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      setDebts((prev) => [newDebt, ...prev]);
+
+      const txId = `tx-inv-${Date.now()}`;
+      const newTx: Transaction = {
+        id: txId,
+        debtId: debtId,
+        customerId: data.customerId,
+        amount: data.totalAmount,
+        paymentDate: data.date,
+        paymentMethod: data.paymentMethod || 'cash',
+        notes: `سداد كامل كاش للفاتورة #${data.invoiceNumber}`,
+        receiptNumber: `REC-${data.invoiceNumber}`,
+        createdAt: nowIso,
+      };
+      setTransactions((prev) => [newTx, ...prev]);
+
+      try {
+        await setDoc(doc(db, 'debts', newDebt.id), cleanForFirestore(newDebt));
+        await setDoc(doc(db, 'transactions', newTx.id), cleanForFirestore(newTx));
+      } catch (e) {
+        console.error('Create cash invoice firestore error:', e);
+      }
+    }
+
+    const newInvoice: Invoice = {
+      ...data,
+      id: invId,
+      debtId: generatedDebtId,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    setInvoices((prev) => [newInvoice, ...prev]);
+
+    // Create notification
+    const cust = customers.find((c) => c.id === data.customerId);
+    const notif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      customerId: data.customerId,
+      debtId: generatedDebtId,
+      title: 'إصدار فاتورة جديدة',
+      message: `تم إصدار الفاتورة #${data.invoiceNumber} للزبون ${cust?.name || ''} بمبلغ ${data.totalAmount} د.م وإضافتها تلقائياً للرصيد`,
+      date: nowIso,
+      read: false,
+      type: 'system',
+    };
+    setNotifications((prev) => [notif, ...prev]);
+
+    try {
+      await setDoc(doc(db, 'invoices', newInvoice.id), cleanForFirestore(newInvoice));
+      await setDoc(doc(db, 'notifications', notif.id), cleanForFirestore(notif));
+    } catch (e) {
+      console.error('Save invoice firestore error:', e);
+    }
+
+    try {
+      confetti({ particleCount: 60, spread: 65, origin: { y: 0.7 } });
+    } catch {}
+
+    return newInvoice;
+  };
+
+  const updateInvoice = async (id: string, updates: Partial<Invoice>) => {
+    const updated = { ...updates, updatedAt: new Date().toISOString() };
+    setInvoices((prev) =>
+      prev.map((inv) => (inv.id === id ? ({ ...inv, ...updated } as Invoice) : inv))
+    );
+    try {
+      await setDoc(doc(db, 'invoices', id), cleanForFirestore(updated), { merge: true });
+    } catch (e) {
+      console.error('Update invoice firestore error:', e);
+    }
+  };
+
+  const deleteInvoice = async (id: string, deleteLinkedDebt: boolean = true) => {
+    const target = invoices.find((i) => i.id === id);
+    setInvoices((prev) => prev.filter((i) => i.id !== id));
+
+    if (target?.debtId && deleteLinkedDebt) {
+      setDebts((prev) => prev.filter((d) => d.id !== target.debtId));
+      setTransactions((prev) => prev.filter((t) => t.debtId !== target.debtId));
+    }
+
+    try {
+      await deleteDoc(doc(db, 'invoices', id));
+      if (target?.debtId && deleteLinkedDebt) {
+        await deleteDoc(doc(db, 'debts', target.debtId));
+      }
+    } catch (e) {
+      console.error('Delete invoice firestore error:', e);
+    }
+  };
+
   // Record Payment (Supports single debt, or unified customer total across all old & new debts)
   const recordPayment = async ({
     debtId,
@@ -928,6 +1202,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       customers,
       debts,
       transactions,
+      invoices,
       notifications,
       config,
       userProfile,
@@ -950,6 +1225,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         setCustomers(parsed.customers);
         setDebts(parsed.debts);
         if (parsed.transactions) setTransactions(parsed.transactions);
+        if (parsed.invoices) setInvoices(parsed.invoices);
         if (parsed.notifications) setNotifications(parsed.notifications);
         if (parsed.config) setConfig(parsed.config);
         if (parsed.userProfile) setUserProfile(parsed.userProfile);
@@ -958,6 +1234,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         parsed.customers.forEach((c: Customer) => setDoc(doc(db, 'customers', c.id), cleanForFirestore(c)).catch(console.error));
         parsed.debts.forEach((d: Debt) => setDoc(doc(db, 'debts', d.id), cleanForFirestore(d)).catch(console.error));
         if (parsed.transactions) parsed.transactions.forEach((t: Transaction) => setDoc(doc(db, 'transactions', t.id), cleanForFirestore(t)).catch(console.error));
+        if (parsed.invoices) parsed.invoices.forEach((inv: Invoice) => setDoc(doc(db, 'invoices', inv.id), cleanForFirestore(inv)).catch(console.error));
         if (parsed.notifications) parsed.notifications.forEach((n: NotificationItem) => setDoc(doc(db, 'notifications', n.id), cleanForFirestore(n)).catch(console.error));
         if (parsed.config) setDoc(doc(db, 'settings', 'config'), cleanForFirestore(parsed.config)).catch(console.error);
         if (parsed.userProfile) setDoc(doc(db, 'settings', 'profile'), cleanForFirestore(parsed.userProfile)).catch(console.error);
@@ -974,6 +1251,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     setCustomers(initialCustomers);
     setDebts(initialDebts);
     setTransactions(initialTransactions);
+    setInvoices(initialInvoices);
     setNotifications(initialNotifications);
     setConfig(defaultConfig);
     setUserProfile(defaultProfile);
@@ -983,6 +1261,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       initialCustomers.forEach((c) => setDoc(doc(db, 'customers', c.id), cleanForFirestore(c)).catch(console.error));
       initialDebts.forEach((d) => setDoc(doc(db, 'debts', d.id), cleanForFirestore(d)).catch(console.error));
       initialTransactions.forEach((t) => setDoc(doc(db, 'transactions', t.id), cleanForFirestore(t)).catch(console.error));
+      initialInvoices.forEach((inv) => setDoc(doc(db, 'invoices', inv.id), cleanForFirestore(inv)).catch(console.error));
       initialNotifications.forEach((n) => setDoc(doc(db, 'notifications', n.id), cleanForFirestore(n)).catch(console.error));
       setDoc(doc(db, 'settings', 'config'), cleanForFirestore(defaultConfig)).catch(console.error);
       setDoc(doc(db, 'settings', 'profile'), cleanForFirestore(defaultProfile)).catch(console.error);
@@ -1001,6 +1280,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         customers,
         debts,
         transactions,
+        invoices,
         notifications,
         config,
         userProfile,
@@ -1017,6 +1297,9 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         updateDebt,
         deleteDebt,
         consolidateCustomerDebts,
+        createInvoice,
+        updateInvoice,
+        deleteInvoice,
         recordPayment,
         deleteTransaction,
         updateConfig,

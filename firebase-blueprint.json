@@ -69,6 +69,26 @@
       },
       "required": ["id", "title", "message"]
     },
+    "invoices": {
+      "title": "Invoices",
+      "description": "Customer invoices with items and automatic credit management",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "date": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "paidAmount": { "type": "number" },
+        "remainingAmount": { "type": "number" },
+        "paymentType": { "type": "string" },
+        "debtId": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "invoiceNumber", "customerId", "totalAmount"]
+    },
     "settings": {
       "title": "Settings",
       "description": "Shared configuration and user profile",

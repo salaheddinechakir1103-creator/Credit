@@ -11,6 +11,7 @@ import {
   UserCheck,
   Sparkles,
   CloudCheck,
+  Receipt,
 } from 'lucide-react';
 import { useCreditManager } from '../context/CreditManagerContext';
 import { getTranslation } from '../utils/translations';
@@ -18,10 +19,11 @@ import { Language } from '../types/creditManager';
 
 interface HeaderProps {
   onOpenAddDebt: () => void;
+  onOpenCreateInvoice?: () => void;
   onOpenNotifications: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenAddDebt, onOpenNotifications }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenAddDebt, onOpenCreateInvoice, onOpenNotifications }) => {
   const { config, updateConfig, userProfile, notifications, searchQuery, setSearchQuery, lockApp, triggerSync } =
     useCreditManager();
   const t = getTranslation(config.language);
@@ -84,6 +86,17 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddDebt, onOpenNotificatio
 
         {/* Action Controls */}
         <div className="flex items-center gap-2">
+          {/* Quick Create Invoice Button */}
+          {onOpenCreateInvoice && (
+            <button
+              onClick={onOpenCreateInvoice}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/70 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800 rounded-xl transition-all active:scale-95"
+            >
+              <Receipt className="w-4 h-4" />
+              <span className="hidden md:inline">فاتورة جديدة</span>
+            </button>
+          )}
+
           {/* Quick Add Debt Button */}
           <button
             onClick={onOpenAddDebt}
