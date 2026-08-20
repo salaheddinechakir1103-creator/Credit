@@ -20,7 +20,7 @@ import { getTranslation } from '../utils/translations';
 interface CustomerDetailModalProps {
   onClose: () => void;
   onOpenAddDebtForCustomer: (customerId: string) => void;
-  onOpenRecordPayment: (debtId: string) => void;
+  onOpenRecordPayment: (debtId?: string, customerId?: string) => void;
 }
 
 export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
@@ -28,15 +28,17 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
   onOpenAddDebtForCustomer,
   onOpenRecordPayment,
 }) => {
-  const { customers, debts, transactions, selectedCustomerId, config } = useCreditManager();
+  const { customers, debts, transactions, selectedCustomerId, consolidateCustomerDebts, config } = useCreditManager();
   const t = getTranslation(config.language);
 
   const [activeSubTab, setActiveSubTab] = useState<'debts' | 'transactions'>('debts');
+  const [isConsolidating, setIsConsolidating] = useState<boolean>(false);
 
   const customer = customers.find((c) => c.id === selectedCustomerId);
   if (!customer) return null;
 
   const custDebts = debts.filter((d) => d.customerId === customer.id);
+  const activeUnpaidDebts = custDebts.filter((d) => d.remainingAmount > 0);
   const custTransactions = transactions.filter((t) => t.customerId === customer.id);
 
   const totalLya = custDebts.filter((d) => d.type === 'lya').reduce((acc, d) => acc + d.remainingAmount, 0);
@@ -49,6 +51,12 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
     config.currency,
     'اليوم'
   );
+
+  const handleConsolidate = async () => {
+    setIsConsolidating(true);
+    await consolidateCustomerDebts(customer.id);
+    setIsConsolidating(false);
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
@@ -87,7 +95,7 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
           </button>
         </div>
 
-        {/* Action Bar (Call, WhatsApp, SMS, Add Debt, Add Payment) */}
+        {/* Action Bar (Call, WhatsApp, SMS, Add Debt, Add Payment, Consolidate) */}
         <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <a
@@ -115,13 +123,37 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
             </a>
           </div>
 
-          <button
-            onClick={() => onOpenAddDebtForCustomer(customer.id)}
-            className="flex items-center gap-1 px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{t.addDebt}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {activeUnpaidDebts.length > 1 && (
+              <button
+                onClick={handleConsolidate}
+                disabled={isConsolidating}
+                className="flex items-center gap-1 px-3 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 rounded-xl hover:bg-emerald-100 transition-all"
+                title="دمج كل البونات القديمة والجديدة في بون إجمالي واحد"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>دمج البونات ({activeUnpaidDebts.length}) في بون موحد</span>
+              </button>
+            )}
+
+            {(totalLya > 0 || totalAlya > 0) && (
+              <button
+                onClick={() => onOpenRecordPayment(undefined, customer.id)}
+                className="flex items-center gap-1 px-3.5 py-2 text-xs font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 shadow-sm transition-all"
+              >
+                <Receipt className="w-4 h-4" />
+                <span>أداء على الحساب الموحد</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => onOpenAddDebtForCustomer(customer.id)}
+              className="flex items-center gap-1 px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{t.addDebt}</span>
+            </button>
+          </div>
         </div>
 
         {/* Customer Totals Summary Cards */}
@@ -224,7 +256,7 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
 
                     {d.remainingAmount > 0 && (
                       <button
-                        onClick={() => onOpenRecordPayment(d.id)}
+                        onClick={() => onOpenRecordPayment(d.id, customer.id)}
                         className="px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 rounded-xl transition-all"
                       >
                         أداء

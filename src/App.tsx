@@ -104,7 +104,7 @@ const AppContent: React.FC = () => {
             <DebtList
               onOpenAddDebt={() => handleOpenAddDebt()}
               onEditDebt={handleOpenEditDebt}
-              onOpenRecordPayment={(dId) => handleOpenRecordPayment(dId)}
+              onOpenRecordPayment={(dId, cId) => handleOpenRecordPayment(dId, cId)}
             />
           )}
 
@@ -146,7 +146,7 @@ const AppContent: React.FC = () => {
         <CustomerDetailModal
           onClose={() => setSelectedCustomerId(null)}
           onOpenAddDebtForCustomer={(cId) => handleOpenAddDebt(cId)}
-          onOpenRecordPayment={(dId) => handleOpenRecordPayment(dId)}
+          onOpenRecordPayment={(dId, cId) => handleOpenRecordPayment(dId, cId)}
         />
       )}
 

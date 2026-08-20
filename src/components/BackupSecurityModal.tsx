@@ -76,52 +76,65 @@ export const BackupSecurityModal: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Security & PIN Settings Box */}
         <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white text-sm">
-            <Lock className="w-4 h-4 text-indigo-600" />
-            <span>{t.security}</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white text-sm">
+              <Lock className="w-4 h-4 text-indigo-600" />
+              <span>{t.security} ورمز القفل</span>
+            </div>
+            <span className="px-2.5 py-0.5 text-[10px] rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800">
+              الرمز الحالي: {config.pinCode || '1234'}
+            </span>
           </div>
+
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            يُطلب هذا الرمز تلقائياً في كل مرة تفتح فيها التطبيق لحماية سجلاتك وبيانات الزبناء.
+          </p>
 
           <form onSubmit={handleSavePin} className="space-y-3">
             <div>
-              <label className="block text-xs text-slate-500 mb-1">{t.setPin}</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                تغيير رمز المرور السري (4 أرقام):
+              </label>
               <div className="flex gap-2">
                 <input
                   type="password"
                   maxLength={6}
                   value={newPin}
                   onChange={(e) => setNewPin(e.target.value)}
-                  placeholder="****"
+                  placeholder="مثال: 5566"
                   className="flex-1 px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
                 />
                 <button
                   type="submit"
                   className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all"
                 >
-                  حفظ الرمز
+                  حفظ الرمز الجديد
                 </button>
               </div>
               {pinSuccessMsg && (
                 <span className="text-[11px] text-emerald-600 font-bold block mt-1">
-                  ✓ تم حفظ رمز PIN بنجاح!
+                  ✓ تم تحديث رمز المرور بنجاح!
                 </span>
               )}
             </div>
           </form>
 
-          {/* Biometric Fingerprint Toggle */}
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Fingerprint className="w-4 h-4 text-slate-500" />
-              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                {t.biometric}
-              </span>
+          {/* Biometric Fingerprint & Lock Now buttons */}
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Fingerprint className="w-4 h-4 text-slate-500" />
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                  {t.biometric}
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={config.biometricEnabled}
+                onChange={(e) => updateConfig({ biometricEnabled: e.target.checked })}
+                className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+              />
             </div>
-            <input
-              type="checkbox"
-              checked={config.biometricEnabled}
-              onChange={(e) => updateConfig({ biometricEnabled: e.target.checked })}
-              className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
-            />
           </div>
         </div>
 

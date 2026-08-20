@@ -13,6 +13,7 @@ import { db } from '../lib/firebase';
 import {
   Customer,
   Debt,
+  DebtStatus,
   Transaction,
   NotificationItem,
   AppConfig,
@@ -51,18 +52,20 @@ interface CreditManagerContextType {
   deleteCustomer: (id: string) => void;
 
   // Debt CRUD
-  addDebt: (debt: Omit<Debt, 'id' | 'remainingAmount' | 'status' | 'createdAt' | 'updatedAt'>) => void;
+  addDebt: (debt: Omit<Debt, 'id' | 'remainingAmount' | 'status' | 'createdAt' | 'updatedAt'>, mergeWithExisting?: boolean) => void;
   updateDebt: (id: string, updates: Partial<Debt>) => void;
   deleteDebt: (id: string) => void;
+  consolidateCustomerDebts: (customerId: string) => Promise<void>;
 
   // Transactions & Payments
   recordPayment: (payment: {
-    debtId: string;
+    debtId?: string;
+    customerId?: string;
     amount: number;
     paymentMethod: Transaction['paymentMethod'];
     notes?: string;
     paymentDate?: string;
-  }) => void;
+  }) => Promise<void>;
   deleteTransaction: (id: string) => void;
 
   // Config & Profile & Security
@@ -243,7 +246,8 @@ const defaultConfig: AppConfig = {
   language: 'ar',
   theme: 'light',
   currency: 'MAD',
-  isLocked: false,
+  pinCode: '1234',
+  isLocked: true,
   biometricEnabled: false,
   firebaseSyncEnabled: true,
   lastSyncDate: new Date().toISOString(),
@@ -298,7 +302,13 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
   const [config, setConfig] = useState<AppConfig>(() => {
     try {
       const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_config`);
-      return saved && saved !== 'undefined' ? { ...defaultConfig, ...JSON.parse(saved) } : defaultConfig;
+      const parsed = saved && saved !== 'undefined' ? JSON.parse(saved) : {};
+      return {
+        ...defaultConfig,
+        ...parsed,
+        pinCode: parsed.pinCode || '1234',
+        isLocked: true, // Always require PIN code on startup
+      };
     } catch {
       return defaultConfig;
     }
@@ -448,12 +458,22 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       doc(db, 'settings', 'config'),
       (docSnap) => {
         if (docSnap.exists()) {
-          setConfig(docSnap.data() as AppConfig);
+          const cloudConfig = docSnap.data() as AppConfig;
+          setConfig((prev) => ({
+            ...prev,
+            ...cloudConfig,
+            pinCode: cloudConfig.pinCode || prev.pinCode || '1234',
+            isLocked: prev.isLocked, // preserve runtime lock status
+          }));
         } else {
           const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_config`);
           const localCfg =
             saved && saved !== 'undefined' ? { ...defaultConfig, ...JSON.parse(saved) } : defaultConfig;
-          setConfig(localCfg);
+          setConfig((prev) => ({
+            ...localCfg,
+            pinCode: localCfg.pinCode || '1234',
+            isLocked: prev.isLocked,
+          }));
           setDoc(doc(db, 'settings', 'config'), cleanForFirestore(localCfg)).catch(console.error);
         }
       },
@@ -573,9 +593,50 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // Debt Actions
-  const addDebt = async (data: Omit<Debt, 'id' | 'remainingAmount' | 'status' | 'createdAt' | 'updatedAt'>) => {
+  const addDebt = async (
+    data: Omit<Debt, 'id' | 'remainingAmount' | 'status' | 'createdAt' | 'updatedAt'>,
+    mergeWithExisting: boolean = false
+  ) => {
     const todayStr = new Date().toISOString().split('T')[0];
     const isOverdue = data.dueDate < todayStr;
+
+    // Check if customer already has an unpaid debt of the same type that we should merge with
+    if (mergeWithExisting) {
+      const existingDebt = debts.find(
+        (d) => d.customerId === data.customerId && d.type === data.type && d.remainingAmount > 0
+      );
+      if (existingDebt) {
+        const mergedAmount = existingDebt.amount + data.amount;
+        const mergedRemaining = existingDebt.remainingAmount + data.amount;
+        const updatedCategory = existingDebt.category
+          ? `${existingDebt.category} + ${data.category || 'إضافة جديدة'}`
+          : data.category || 'حساب إجمالي موحد';
+        const updatedNotes = data.notes
+          ? `${existingDebt.notes ? existingDebt.notes + ' | ' : ''}إضافة جديدة: ${data.notes}`
+          : existingDebt.notes;
+
+        const updatedDebt: Debt = {
+          ...existingDebt,
+          amount: mergedAmount,
+          remainingAmount: mergedRemaining,
+          category: updatedCategory,
+          notes: updatedNotes,
+          dueDate: data.dueDate > existingDebt.dueDate ? data.dueDate : existingDebt.dueDate,
+          updatedAt: new Date().toISOString(),
+          status: isOverdue ? 'overdue' : 'unpaid',
+        };
+
+        setDebts((prev) => prev.map((d) => (d.id === existingDebt.id ? updatedDebt : d)));
+
+        try {
+          await setDoc(doc(db, 'debts', existingDebt.id), cleanForFirestore(updatedDebt), { merge: true });
+        } catch (e) {
+          console.error('Update merged debt firestore error:', e);
+        }
+        return;
+      }
+    }
+
     const newDebt: Debt = {
       ...data,
       id: `debt-${Date.now()}`,
@@ -630,61 +691,139 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Record Payment
+  const consolidateCustomerDebts = async (customerId: string) => {
+    const custDebts = debts.filter((d) => d.customerId === customerId && d.remainingAmount > 0);
+    if (custDebts.length <= 1) return;
+
+    const totalAmount = custDebts.reduce((sum, d) => sum + d.amount, 0);
+    const totalRemaining = custDebts.reduce((sum, d) => sum + d.remainingAmount, 0);
+    const primaryDebt = custDebts[0];
+    const otherDebts = custDebts.slice(1);
+
+    const mergedDebt: Debt = {
+      ...primaryDebt,
+      amount: totalAmount,
+      remainingAmount: totalRemaining,
+      category: 'بون إجمالي موحد (القديم والجديد)',
+      notes: `تم دمج ${custDebts.length} بونات/ديون في حساب موحد بتاريخ ${new Date().toLocaleDateString('ar-MA')}`,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setDebts((prev) => {
+      const otherIds = otherDebts.map((od) => od.id);
+      return prev
+        .filter((d) => !otherIds.includes(d.id))
+        .map((d) => (d.id === primaryDebt.id ? mergedDebt : d));
+    });
+
+    setTransactions((prev) =>
+      prev.map((t) => (otherDebts.some((od) => od.id === t.debtId) ? { ...t, debtId: primaryDebt.id } : t))
+    );
+
+    try {
+      await setDoc(doc(db, 'debts', primaryDebt.id), cleanForFirestore(mergedDebt), { merge: true });
+      for (const od of otherDebts) {
+        await deleteDoc(doc(db, 'debts', od.id));
+      }
+    } catch (e) {
+      console.error('Consolidate debts firestore error:', e);
+    }
+  };
+
+  // Record Payment (Supports single debt, or unified customer total across all old & new debts)
   const recordPayment = async ({
     debtId,
+    customerId,
     amount,
     paymentMethod,
     notes,
     paymentDate,
   }: {
-    debtId: string;
+    debtId?: string;
+    customerId?: string;
     amount: number;
     paymentMethod: Transaction['paymentMethod'];
     notes?: string;
     paymentDate?: string;
   }) => {
-    const debt = debts.find((d) => d.id === debtId);
-    if (!debt) return;
+    let targetCustomerId = customerId;
+    if (!targetCustomerId && debtId) {
+      const d = debts.find((x) => x.id === debtId);
+      if (d) targetCustomerId = d.customerId;
+    }
+    if (!targetCustomerId) return;
 
-    const actualPayAmount = Math.min(amount, debt.remainingAmount);
-    const newRemaining = Math.max(0, debt.remainingAmount - actualPayAmount);
-    const newStatus = newRemaining === 0 ? 'paid' : 'partial';
+    // Find all unpaid debts for this customer sorted chronologically (FIFO: oldest debt first)
+    const custDebts = debts
+      .filter((d) => d.customerId === targetCustomerId && d.remainingAmount > 0)
+      .sort((a, b) => new Date(a.date || a.createdAt).getTime() - new Date(b.date || b.createdAt).getTime());
 
-    const updatedDebt = { ...debt, remainingAmount: newRemaining, status: newStatus, updatedAt: new Date().toISOString() };
+    if (custDebts.length === 0) return;
+
+    let prioritizedDebts = custDebts;
+    if (debtId) {
+      const specific = custDebts.find((d) => d.id === debtId);
+      if (specific) {
+        prioritizedDebts = [specific, ...custDebts.filter((d) => d.id !== debtId)];
+      }
+    }
+
+    let remainingToPay = amount;
+    const updatedDebtsList: Debt[] = [];
+    const createdTransactionsList: Transaction[] = [];
+
+    for (const d of prioritizedDebts) {
+      if (remainingToPay <= 0) break;
+      const payForThisDebt = Math.min(remainingToPay, d.remainingAmount);
+      const newRemaining = Math.max(0, d.remainingAmount - payForThisDebt);
+      const newStatus: DebtStatus = newRemaining === 0 ? 'paid' : 'partial';
+      const updatedDebtItem: Debt = {
+        ...d,
+        remainingAmount: newRemaining,
+        status: newStatus,
+        updatedAt: new Date().toISOString(),
+      };
+      updatedDebtsList.push(updatedDebtItem);
+      remainingToPay -= payForThisDebt;
+
+      const tx: Transaction = {
+        id: `tx-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        debtId: d.id,
+        customerId: targetCustomerId,
+        amount: payForThisDebt,
+        paymentDate: paymentDate || new Date().toISOString().split('T')[0],
+        paymentMethod,
+        notes: notes || '',
+        receiptNumber: `REC-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        createdAt: new Date().toISOString(),
+      };
+      createdTransactionsList.push(tx);
+    }
 
     setDebts((prev) =>
-      prev.map((d) => (d.id === debtId ? updatedDebt : d))
+      prev.map((d) => {
+        const found = updatedDebtsList.find((u) => u.id === d.id);
+        return found ? found : d;
+      })
     );
 
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      debtId,
-      customerId: debt.customerId,
-      amount: actualPayAmount,
-      paymentDate: paymentDate || new Date().toISOString().split('T')[0],
-      paymentMethod,
-      notes: notes || '',
-      receiptNumber: `REC-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-      createdAt: new Date().toISOString(),
-    };
+    setTransactions((prev) => [...createdTransactionsList, ...prev]);
 
-    setTransactions((prev) => [newTx, ...prev]);
-
-    const cust = customers.find((c) => c.id === debt.customerId);
+    const cust = customers.find((c) => c.id === targetCustomerId);
     const notif: NotificationItem = {
       id: `notif-${Date.now()}`,
-      debtId,
-      customerId: debt.customerId,
-      title: 'تسجيل عملية أداء جديدة',
-      message: `تم أداء مبلغ ${actualPayAmount} د.م للزبون ${cust?.name || ''}`,
+      debtId: custDebts[0]?.id,
+      customerId: targetCustomerId,
+      title: 'تسجيل عملية أداء على الحساب',
+      message: `تم أداء مبلغ ${amount} د.م لحساب ${cust?.name || ''} (تسوية القديم والجديد)`,
       date: new Date().toISOString(),
       read: false,
       type: 'payment',
     };
     setNotifications((prev) => [notif, ...prev]);
 
-    if (newRemaining === 0) {
+    const allSettled = updatedDebtsList.every((d) => d.remainingAmount === 0);
+    if (allSettled) {
       confetti({
         particleCount: 80,
         spread: 70,
@@ -693,8 +832,12 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     try {
-      await setDoc(doc(db, 'debts', debtId), cleanForFirestore(updatedDebt), { merge: true });
-      await setDoc(doc(db, 'transactions', newTx.id), cleanForFirestore(newTx));
+      for (const ud of updatedDebtsList) {
+        await setDoc(doc(db, 'debts', ud.id), cleanForFirestore(ud), { merge: true });
+      }
+      for (const tx of createdTransactionsList) {
+        await setDoc(doc(db, 'transactions', tx.id), cleanForFirestore(tx));
+      }
       await setDoc(doc(db, 'notifications', notif.id), cleanForFirestore(notif));
     } catch (e) {
       console.error('Record payment firestore error:', e);
@@ -767,7 +910,8 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const unlockApp = (pin: string) => {
-    if (!config.pinCode || config.pinCode === pin) {
+    const validPin = config.pinCode || '1234';
+    if (validPin === pin) {
       setConfig((prev) => ({ ...prev, isLocked: false }));
       return true;
     }
@@ -872,6 +1016,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         addDebt,
         updateDebt,
         deleteDebt,
+        consolidateCustomerDebts,
         recordPayment,
         deleteTransaction,
         updateConfig,

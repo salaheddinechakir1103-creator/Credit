@@ -24,7 +24,7 @@ import { Debt, DebtStatus, DebtType } from '../types/creditManager';
 interface DebtListProps {
   onOpenAddDebt: () => void;
   onEditDebt: (debt: Debt) => void;
-  onOpenRecordPayment: (debtId: string) => void;
+  onOpenRecordPayment: (debtId: string, customerId?: string) => void;
 }
 
 export const DebtList: React.FC<DebtListProps> = ({
@@ -266,7 +266,13 @@ export const DebtList: React.FC<DebtListProps> = ({
                       >
                         {debt.status === 'paid' && <CheckCircle2 className="w-3 h-3" />}
                         {debt.status === 'overdue' && <AlertTriangle className="w-3 h-3" />}
-                        {t[debt.status as keyof typeof t] || debt.status}
+                        {debt.status === 'paid'
+                          ? t.paid
+                          : debt.status === 'overdue'
+                          ? t.overdue
+                          : debt.status === 'partial'
+                          ? t.partial
+                          : t.unpaid}
                       </span>
                     </div>
 
@@ -307,7 +313,7 @@ export const DebtList: React.FC<DebtListProps> = ({
                   <div className="flex items-center gap-1.5">
                     {debt.remainingAmount > 0 && (
                       <button
-                        onClick={() => onOpenRecordPayment(debt.id)}
+                        onClick={() => onOpenRecordPayment(debt.id, debt.customerId)}
                         className="px-3 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow transition-all active:scale-95 flex items-center gap-1"
                       >
                         <DollarSign className="w-3.5 h-3.5" />
