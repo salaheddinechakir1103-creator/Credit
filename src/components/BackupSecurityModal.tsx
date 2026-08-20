@@ -22,18 +22,22 @@ export const BackupSecurityModal: React.FC = () => {
     importDataJSON,
     resetAllData,
     setPinCode,
+    lockApp,
     triggerSync,
   } = useCreditManager();
   const t = getTranslation(config.language);
 
   const [newPin, setNewPin] = useState('');
   const [pinSuccessMsg, setPinSuccessMsg] = useState(false);
+  const [showCurrentPin, setShowCurrentPin] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
 
   const handleSavePin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPin.length >= 4) {
-      setPinCode(newPin);
+    const cleanPin = newPin.trim();
+    if (/^\d{4,6}$/.test(cleanPin)) {
+      setPinCode(cleanPin);
+      setNewPin('');
       setPinSuccessMsg(true);
       setTimeout(() => setPinSuccessMsg(false), 3000);
     }
@@ -81,60 +85,64 @@ export const BackupSecurityModal: React.FC = () => {
               <Lock className="w-4 h-4 text-indigo-600" />
               <span>{t.security} ورمز القفل</span>
             </div>
-            <span className="px-2.5 py-0.5 text-[10px] rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800">
-              الرمز الحالي: {config.pinCode || '1234'}
-            </span>
+            <button
+              type="button"
+              onClick={() => setShowCurrentPin(!showCurrentPin)}
+              className="px-2.5 py-1 text-[11px] rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold flex items-center gap-1 transition-all"
+            >
+              <span>الرمز الحالي:</span>
+              <span className="font-mono text-indigo-600 dark:text-indigo-400 font-black">
+                {showCurrentPin ? (config.pinCode || '1234') : '••••'}
+              </span>
+            </button>
           </div>
 
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            يُطلب هذا الرمز تلقائياً في كل مرة تفتح فيها التطبيق لحماية سجلاتك وبيانات الزبناء.
+            يُطلب هذا الرمز بشكل إجباري ومشدد في كل مرة يتم فيها فتح الموقع أو تحديثه لحماية سرية حساباتك.
           </p>
 
           <form onSubmit={handleSavePin} className="space-y-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                تغيير رمز المرور السري (4 أرقام):
+                تغيير رمز المرور السري (4 إلى 6 أرقام):
               </label>
               <div className="flex gap-2">
                 <input
                   type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   maxLength={6}
                   value={newPin}
-                  onChange={(e) => setNewPin(e.target.value)}
-                  placeholder="مثال: 5566"
-                  className="flex-1 px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
+                  placeholder="أدخل الرمز الجديد مثلاً: 8899"
+                  className="flex-1 px-3 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white font-mono"
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all"
+                  disabled={newPin.length < 4}
+                  className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:pointer-events-none rounded-xl transition-all"
                 >
-                  حفظ الرمز الجديد
+                  حفظ الرمز
                 </button>
               </div>
               {pinSuccessMsg && (
-                <span className="text-[11px] text-emerald-600 font-bold block mt-1">
-                  ✓ تم تحديث رمز المرور بنجاح!
+                <span className="text-[11px] text-emerald-600 font-bold block mt-1.5">
+                  ✓ تم تحديث وحفظ رمز المرور الجديد بنجاح!
                 </span>
               )}
             </div>
           </form>
 
-          {/* Biometric Fingerprint & Lock Now buttons */}
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Fingerprint className="w-4 h-4 text-slate-500" />
-                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                  {t.biometric}
-                </span>
-              </div>
-              <input
-                type="checkbox"
-                checked={config.biometricEnabled}
-                onChange={(e) => updateConfig({ biometricEnabled: e.target.checked })}
-                className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
-              />
-            </div>
+          {/* Instant Lock App Button */}
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={lockApp}
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold flex items-center justify-center gap-2 transition-all"
+            >
+              <Lock className="w-4 h-4 text-indigo-600" />
+              <span>قفل التطبيق الآن واختبار الرمز</span>
+            </button>
           </div>
         </div>
 

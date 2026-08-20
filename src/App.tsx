@@ -18,7 +18,12 @@ import { LockScreen } from './components/LockScreen';
 import { Customer, Debt } from './types/creditManager';
 
 const AppContent: React.FC = () => {
-  const { activeTab, selectedCustomerId, setSelectedCustomerId } = useCreditManager();
+  const { activeTab, selectedCustomerId, setSelectedCustomerId, config } = useCreditManager();
+
+  // If locked, render exclusively the LockScreen without mounting sensitive workspace data
+  if (config.isLocked) {
+    return <LockScreen />;
+  }
 
   // Modals state
   const [isAddDebtOpen, setIsAddDebtOpen] = useState(false);
@@ -67,9 +72,6 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
-      {/* Security Lock Screen */}
-      <LockScreen />
-
       {/* Header Bar */}
       <Header
         onOpenAddDebt={() => handleOpenAddDebt()}
