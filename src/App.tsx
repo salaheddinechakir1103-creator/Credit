@@ -17,6 +17,7 @@ import { BackupSecurityModal } from './components/BackupSecurityModal';
 import { ProfileSettings } from './components/ProfileSettings';
 import { NotificationsModal } from './components/NotificationsModal';
 import { LockScreen } from './components/LockScreen';
+import { AIAssistantView } from './components/AIAssistantView';
 import { Customer, Debt } from './types/creditManager';
 
 const MainWorkspace: React.FC = () => {
@@ -97,6 +98,13 @@ const MainWorkspace: React.FC = () => {
               onOpenAddDebt={() => handleOpenAddDebt()}
               onOpenAddCustomer={handleOpenAddCustomer}
               onOpenRecordPayment={handleOpenRecordPayment}
+              onOpenCreateInvoice={() => handleOpenCreateInvoice()}
+            />
+          )}
+
+          {activeTab === 'ai_assistant' && (
+            <AIAssistantView
+              onOpenAddDebt={(cId) => handleOpenAddDebt(cId)}
               onOpenCreateInvoice={() => handleOpenCreateInvoice()}
             />
           )}

@@ -16,6 +16,7 @@ import {
   ChevronRight,
   PieChart as PieIcon,
   BarChart3,
+  Sparkles,
 } from 'lucide-react';
 import {
   BarChart,
@@ -120,6 +121,36 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </button>
         </div>
       )}
+
+      {/* Smart AI Assistant Quick Widget */}
+      <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-indigo-900 via-indigo-800 to-violet-900 text-white shadow-lg border border-indigo-700/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-400 to-amber-200 text-slate-950 flex items-center justify-center shrink-0 shadow-md shadow-amber-400/30">
+            <Sparkles className="w-6 h-6 animate-pulse" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-extrabold text-sm sm:text-base text-white">
+                المستشار المالي الذكي (Gemini AI Assistant)
+              </h3>
+              <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                جديد ومتاح الآن ✨
+              </span>
+            </div>
+            <p className="text-xs text-indigo-200 mt-0.5">
+              استشر الذكاء الاصطناعي لتحليل ديون الزبائن، الإدخال الصوتي السريع، وصياغة رسائل التذكير المخصصة.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setActiveTab('ai_assistant')}
+          className="px-4 py-2.5 rounded-xl bg-white text-indigo-950 font-black text-xs hover:bg-indigo-50 shadow-md transition-all active:scale-95 flex items-center gap-1.5 shrink-0"
+        >
+          <span>فتح المستشار الذكي AI</span>
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
 
       {/* Primary 4 Metric Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

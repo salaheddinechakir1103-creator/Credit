@@ -20,6 +20,8 @@ import {
   Edit3,
   RefreshCw,
   Share2,
+  Loader2,
+  Bot,
 } from 'lucide-react';
 import { useCreditManager } from '../context/CreditManagerContext';
 import { formatCurrency, formatDate, getWhatsAppUrl } from '../utils/formatters';
@@ -56,6 +58,11 @@ export const WhatsAppMessageModal: React.FC<WhatsAppMessageModalProps> = ({
   const [customText, setCustomText] = useState<string>('');
   const [isEditingManually, setIsEditingManually] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
+
+  // AI Generator state
+  const [aiTone, setAiTone] = useState<'friendly' | 'formal' | 'brotherly' | 'firm'>('friendly');
+  const [aiDialect, setAiDialect] = useState<'darija' | 'arabic' | 'french'>('darija');
+  const [isGeneratingAi, setIsGeneratingAi] = useState<boolean>(false);
 
   // Customer data
   const customerDebts = debts.filter((d) => d.customerId === customer.id);
@@ -270,6 +277,33 @@ export const WhatsAppMessageModal: React.FC<WhatsAppMessageModalProps> = ({
     window.open(url, '_blank');
   };
 
+  const handleGenerateAiMessage = async () => {
+    setIsGeneratingAi(true);
+    try {
+      const earliestDueDate = unpaidDebts.find((d) => d.dueDate)?.dueDate;
+      const res = await fetch('/api/ai/generate-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: customer.name,
+          amount: formatCurrency(totalLya, config.currency, config.language),
+          dueDate: earliestDueDate ? formatDate(earliestDueDate, config.language) : '',
+          tone: aiTone,
+          dialect: aiDialect,
+        }),
+      });
+      const data = await res.json();
+      if (data.message) {
+        setCustomText(data.message);
+        setIsEditingManually(true);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
+
   const templatesList: {
     id: WhatsAppTemplateType;
     label: string;
@@ -357,9 +391,63 @@ export const WhatsAppMessageModal: React.FC<WhatsAppMessageModalProps> = ({
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-y-auto divide-y lg:divide-y-0 lg:divide-x lg:divide-x-reverse divide-slate-200 dark:divide-slate-800">
           {/* Left Column (5 cols): Template selection & options */}
           <div className="lg:col-span-5 p-4 sm:p-5 space-y-4 bg-slate-50/70 dark:bg-slate-950/40">
+            {/* AI Generator Box */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-900 to-violet-900 text-white border border-indigo-700/60 shadow-md space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center font-bold">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-white">صياغة ذكية بالذكاء الاصطناعي</h4>
+                    <span className="text-[10px] text-indigo-200">Gemini 3.7 Flash</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <label className="text-[10px] text-indigo-200 block mb-1">نبرة الرسالة:</label>
+                  <select
+                    value={aiTone}
+                    onChange={(e) => setAiTone(e.target.value as any)}
+                    className="w-full p-2 bg-indigo-950/90 border border-indigo-700/60 rounded-xl text-xs text-white"
+                  >
+                    <option value="friendly">ودية ولطيفة (بدون إحراج)</option>
+                    <option value="brotherly">أخوية وقريبة (للأصدقاء)</option>
+                    <option value="formal">رسمية وتجارية</option>
+                    <option value="firm">حازمة ومهذبة</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-indigo-200 block mb-1">اللهجة:</label>
+                  <select
+                    value={aiDialect}
+                    onChange={(e) => setAiDialect(e.target.value as any)}
+                    className="w-full p-2 bg-indigo-950/90 border border-indigo-700/60 rounded-xl text-xs text-white"
+                  >
+                    <option value="darija">الدارجة المغربية</option>
+                    <option value="arabic">الفصحى</option>
+                    <option value="french">الفرنسية</option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleGenerateAiMessage}
+                disabled={isGeneratingAi}
+                className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow transition-all active:scale-95"
+              >
+                {isGeneratingAi ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
+                <span>{isGeneratingAi ? 'جاري الصياغة...' : 'توليد صياغة مخصصة بالذكاء الاصطناعي ✨'}</span>
+              </button>
+            </div>
+
             <div>
               <label className="text-xs font-black text-slate-700 dark:text-slate-300 block mb-2">
-                اختر القالب وأسلوب الرسالة (دلال وعبارات راقية):
+                أو اختر قالباً جاهزاً ومكتوباً مسبقاً:
               </label>
               <div className="space-y-2">
                 {templatesList.map((tmpl) => {

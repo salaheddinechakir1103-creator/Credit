@@ -24,7 +24,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onOpenAddDebt, onOpenCreateInvoice, onOpenNotifications }) => {
-  const { config, updateConfig, userProfile, notifications, searchQuery, setSearchQuery, lockApp, triggerSync } =
+  const { config, updateConfig, userProfile, notifications, searchQuery, setSearchQuery, lockApp, triggerSync, activeTab, setActiveTab } =
     useCreditManager();
   const t = getTranslation(config.language);
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -86,6 +86,20 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddDebt, onOpenCreateInvoi
 
         {/* Action Controls */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Quick AI Assistant Button */}
+          <button
+            onClick={() => setActiveTab('ai_assistant')}
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-black rounded-xl transition-all active:scale-95 border ${
+              activeTab === 'ai_assistant'
+                ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-600/30 border-transparent'
+                : 'bg-gradient-to-r from-amber-50 to-indigo-50 dark:from-amber-950/40 dark:to-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-amber-200/70 dark:border-indigo-800/70 hover:shadow-sm'
+            }`}
+            title="المستشار الذكي AI"
+          >
+            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 animate-pulse" />
+            <span className="font-extrabold text-[11px] sm:text-xs">المساعد AI</span>
+          </button>
+
           {/* Quick Create Invoice Button */}
           {onOpenCreateInvoice && (
             <button

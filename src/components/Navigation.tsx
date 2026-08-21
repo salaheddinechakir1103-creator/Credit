@@ -27,6 +27,7 @@ export const Navigation: React.FC = () => {
 
   const allNavItems = [
     { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
+    { id: 'ai_assistant', label: 'المستشار الذكي AI', icon: Sparkles, isAi: true },
     { id: 'customers', label: t.customers, icon: Users },
     {
       id: 'debts',
@@ -64,14 +65,24 @@ export const Navigation: React.FC = () => {
                 className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all ${
                   isActive
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold'
+                    : item.isAi
+                    ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100 font-bold'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`} />
+                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : item.isAi ? 'text-amber-500 animate-pulse' : 'text-slate-500 dark:text-slate-400'}`} />
                   <span>{item.label}</span>
                 </div>
-                {item.badge && (
+                {item.isAi ? (
+                  <span
+                    className={`px-2 py-0.5 text-[10px] rounded-full font-black flex items-center gap-1 ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                    }`}
+                  >
+                    Gemini ✨
+                  </span>
+                ) : item.badge ? (
                   <span
                     className={`px-2 py-0.5 text-xs rounded-full font-bold flex items-center gap-1 ${
                       isActive ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
@@ -80,7 +91,7 @@ export const Navigation: React.FC = () => {
                     <AlertTriangle className="w-3 h-3" />
                     {item.badge}
                   </span>
-                )}
+                ) : null}
               </button>
             );
           })}
