@@ -42,8 +42,21 @@ export const Navigation: React.FC = () => {
     { id: 'profile', label: t.profile, icon: User },
   ];
 
+  // Primary 4 items on mobile + "More"
+  const mobilePrimaryItems = [
+    { id: 'dashboard', label: 'الرئيسية', icon: LayoutDashboard },
+    { id: 'customers', label: 'الزبناء', icon: Users },
+    {
+      id: 'debts',
+      label: 'الديون',
+      icon: Receipt,
+      badge: overdueCount > 0 ? overdueCount : undefined,
+    },
+    { id: 'ai_assistant', label: 'المستشار AI', icon: Sparkles, isAi: true },
+  ];
+
   // Secondary items in the "More" menu
-  const isSecondaryActive = ['reports', 'settings', 'profile'].includes(activeTab);
+  const isSecondaryActive = ['invoices', 'transactions', 'reports', 'settings', 'profile'].includes(activeTab);
 
   const handleSelectTab = (tabId: string) => {
     setActiveTab(tabId);
@@ -62,7 +75,7 @@ export const Navigation: React.FC = () => {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all ${
+                className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer ${
                   isActive
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold'
                     : item.isAi
@@ -111,70 +124,50 @@ export const Navigation: React.FC = () => {
         </div>
       </aside>
 
-      {/* Mobile Bottom Navigation Bar - with swipeable items & more sheet */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-1 py-1 shadow-xl">
-        <div className="flex items-center justify-between">
+      {/* Mobile Bottom Navigation Bar - Perfectly spaced 5 buttons */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-1 py-1.5 shadow-xl select-none">
+        <div className="grid grid-cols-5 gap-0.5 items-center">
           {/* Main 4 tabs */}
-          {allNavItems.slice(0, 4).map((item) => {
+          {mobilePrimaryItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
+                type="button"
                 onClick={() => handleSelectTab(item.id)}
-                className={`flex-1 flex flex-col items-center gap-1 py-1.5 px-1 rounded-xl text-xs font-medium relative transition-all ${
+                className={`min-h-[50px] flex flex-col items-center justify-center gap-1 py-1 px-0.5 rounded-xl text-xs font-medium relative transition-all active:scale-95 touch-manipulation cursor-pointer ${
                   isActive
-                    ? 'text-indigo-600 dark:text-indigo-400 font-extrabold'
+                    ? item.isAi
+                      ? 'text-amber-500 dark:text-amber-400 font-black'
+                      : 'text-indigo-600 dark:text-indigo-400 font-extrabold'
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <Icon className={`w-5 h-5 transition-transform ${isActive ? 'scale-110' : ''}`} />
-                <span className="text-[10px] leading-none truncate">{item.label}</span>
+                <Icon className={`w-5 h-5 transition-transform ${isActive ? 'scale-110' : ''} ${item.isAi && !isActive ? 'text-amber-500' : ''}`} />
+                <span className="text-[10px] leading-none whitespace-nowrap">{item.label}</span>
                 {item.badge && (
-                  <span className="absolute top-1 end-3 w-2 h-2 rounded-full bg-rose-500" />
+                  <span className="absolute top-1 end-2 w-2 h-2 rounded-full bg-rose-500" />
                 )}
                 {isActive && (
-                  <span className="w-4 h-0.5 bg-indigo-600 dark:bg-indigo-400 rounded-full mt-0.5" />
+                  <span className={`w-4 h-0.5 rounded-full mt-0.5 ${item.isAi ? 'bg-amber-500' : 'bg-indigo-600 dark:bg-indigo-400'}`} />
                 )}
               </button>
             );
           })}
 
-          {/* Transactions Tab */}
-          {(() => {
-            const item = allNavItems[4]; // transactions
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleSelectTab(item.id)}
-                className={`flex-1 flex flex-col items-center gap-1 py-1.5 px-1 rounded-xl text-xs font-medium relative transition-all ${
-                  isActive
-                    ? 'text-indigo-600 dark:text-indigo-400 font-extrabold'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <Icon className={`w-5 h-5 transition-transform ${isActive ? 'scale-110' : ''}`} />
-                <span className="text-[10px] leading-none truncate">{item.label}</span>
-                {isActive && (
-                  <span className="w-4 h-0.5 bg-indigo-600 dark:bg-indigo-400 rounded-full mt-0.5" />
-                )}
-              </button>
-            );
-          })()}
-
           {/* "More / المزيد" Menu Button */}
           <button
+            type="button"
             onClick={() => setShowMoreMenu(true)}
-            className={`flex-1 flex flex-col items-center gap-1 py-1.5 px-1 rounded-xl text-xs font-medium relative transition-all ${
+            className={`min-h-[50px] flex flex-col items-center justify-center gap-1 py-1 px-0.5 rounded-xl text-xs font-medium relative transition-all active:scale-95 touch-manipulation cursor-pointer ${
               isSecondaryActive || showMoreMenu
                 ? 'text-indigo-600 dark:text-indigo-400 font-extrabold'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <MoreHorizontal className={`w-5 h-5 transition-transform ${isSecondaryActive ? 'scale-110' : ''}`} />
-            <span className="text-[10px] leading-none truncate">المزيد</span>
+            <span className="text-[10px] leading-none whitespace-nowrap">المزيد</span>
             {isSecondaryActive && (
               <span className="w-4 h-0.5 bg-indigo-600 dark:bg-indigo-400 rounded-full mt-0.5" />
             )}

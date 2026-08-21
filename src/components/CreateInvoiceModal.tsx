@@ -222,7 +222,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto flex-1 text-slate-800 dark:text-slate-200">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5 sm:space-y-6 overflow-y-auto flex-1 text-slate-800 dark:text-slate-200">
           {/* Customer Selection & Invoice Info Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Customer Box */}
@@ -231,18 +231,18 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                 الزبون المسجل لدينا *
               </label>
               {selectedCustomer ? (
-                <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900 flex items-center justify-between">
+                <div className="p-3.5 rounded-2xl bg-indigo-50/90 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
                       {selectedCustomer.name.slice(0, 1)}
                     </div>
                     <div>
                       <div className="font-extrabold text-sm text-slate-900 dark:text-white">
                         {selectedCustomer.name}
                       </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                      <div className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-1 mt-0.5">
                         <Phone className="w-3 h-3 text-indigo-500" />
-                        <span>{selectedCustomer.phone}</span>
+                        <span className="font-mono">{selectedCustomer.phone}</span>
                       </div>
                     </div>
                   </div>
@@ -254,7 +254,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                         setCustomerId('');
                         setSearchCustomer('');
                       }}
-                      className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline px-2 py-1"
+                      className="text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-100 transition-all"
                     >
                       تغيير
                     </button>
@@ -269,11 +269,11 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                       value={searchCustomer}
                       onChange={(e) => setSearchCustomer(e.target.value)}
                       placeholder="ابحث عن الزبون بالاسم أو الهاتف..."
-                      className="w-full ps-9 pe-3 py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                      className="w-full ps-9 pe-3 py-2.5 text-xs sm:text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
                       autoFocus
                     />
                   </div>
-                  <div className="max-h-36 overflow-y-auto space-y-1 pe-1 border border-slate-100 dark:border-slate-800 rounded-xl p-1 bg-slate-50/50 dark:bg-slate-800/30">
+                  <div className="max-h-36 overflow-y-auto space-y-1 pe-1 border border-slate-200 dark:border-slate-700 rounded-xl p-1.5 bg-slate-50 dark:bg-slate-800/50">
                     {filteredCustomers.length === 0 ? (
                       <p className="text-xs text-slate-400 text-center py-3">لم يتم العثور على زبون</p>
                     ) : (
@@ -282,10 +282,10 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                           key={c.id}
                           type="button"
                           onClick={() => setCustomerId(c.id)}
-                          className="w-full px-3 py-2 text-xs font-bold rounded-lg text-start flex items-center justify-between hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-slate-800 dark:text-slate-200 transition-colors"
+                          className="w-full px-3 py-2 text-xs font-bold rounded-lg text-start flex items-center justify-between hover:bg-indigo-100 dark:hover:bg-indigo-950/60 text-slate-800 dark:text-slate-200 transition-colors"
                         >
                           <span>{c.name}</span>
-                          <span className="text-[11px] text-slate-400 font-normal">{c.phone}</span>
+                          <span className="text-[11px] text-slate-500 font-mono">{c.phone}</span>
                         </button>
                       ))
                     )}
@@ -295,10 +295,10 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
             </div>
 
             {/* Invoice Meta Grid */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  رقم الفاتورة
+                  رقم الفاتورة *
                 </label>
                 <div className="relative">
                   <Receipt className="w-4 h-4 absolute inset-y-0 my-auto start-3 text-slate-400" />
@@ -307,25 +307,25 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                     value={invoiceNumber}
                     onChange={(e) => setInvoiceNumber(e.target.value)}
                     required
-                    className="w-full ps-9 pe-3 py-2.5 text-xs font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                    className="w-full ps-9 pe-3 py-2.5 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  تاريخ الفاتورة
+                  تاريخ الفاتورة *
                 </label>
                 <input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   required
-                  className="w-full px-3 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                  className="w-full px-3 py-2.5 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
                 />
               </div>
 
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   تاريخ الاستحقاق للدين (موعد السداد المتفق عليه)
                 </label>
@@ -336,14 +336,14 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
                     disabled={paymentType === 'cash'}
-                    className="w-full ps-9 pe-3 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 dark:text-white"
+                    className="w-full ps-9 pe-3 py-2.5 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 dark:text-white"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Items Table Section */}
+          {/* Items Section: Cards on Mobile, Table on Desktop */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
@@ -353,51 +353,136 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
               <button
                 type="button"
                 onClick={addItemRow}
-                className="px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 rounded-xl flex items-center gap-1.5 transition-all"
+                className="px-3.5 py-2 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/80 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 rounded-xl flex items-center gap-1.5 transition-all shadow-xs"
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>إضافة سطر جديد</span>
+                <Plus className="w-4 h-4 text-indigo-600" />
+                <span>إضافة مادة جديدة</span>
               </button>
             </div>
 
-            <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+            {/* Mobile View: Clean, readable cards */}
+            <div className="block md:hidden space-y-3">
+              {items.map((item, idx) => (
+                <div
+                  key={item.id}
+                  className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 shadow-xs space-y-3"
+                >
+                  <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700 pb-2">
+                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                      <span className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 flex items-center justify-center text-[11px] font-black">
+                        {idx + 1}
+                      </span>
+                      <span>السلعة / المادة</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeItemRow(idx)}
+                      disabled={items.length <= 1}
+                      className="p-1.5 text-slate-400 hover:text-rose-500 disabled:opacity-30 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                      title="حذف هذا السطر"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Name Input */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                      اسم المادة أو الخدمة *
+                    </label>
+                    <input
+                      type="text"
+                      value={item.name}
+                      onChange={(e) => handleItemChange(idx, 'name', e.target.value)}
+                      placeholder="مثال: زيت 5 لتر، دقيق 50 كلغ، إصلاح شاشة..."
+                      required
+                      className="w-full px-3 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                    />
+                  </div>
+
+                  {/* Quantity & Unit Price in 2 Columns */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                        الكمية
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={item.quantity}
+                        onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
+                        className="w-full px-3 py-2 text-xs font-bold text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                        سعر الوحدة ({config.currency})
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.unitPrice || ''}
+                        onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
+                        placeholder="0.00"
+                        required
+                        className="w-full px-3 py-2 text-xs font-bold font-mono text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row Subtotal */}
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700/80 text-xs">
+                    <span className="text-slate-500 dark:text-slate-400">إجمالي هذا الصنف:</span>
+                    <span className="font-mono font-black text-sm text-indigo-600 dark:text-indigo-400">
+                      {formatCurrency(item.total, config.currency, config.language)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop View: Full Table */}
+            <div className="hidden md:block border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-xs">
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-start">
-                  <thead className="bg-slate-100/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700 font-bold">
+                  <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700 font-bold">
                     <tr>
-                      <th className="p-3 text-start w-7">#</th>
+                      <th className="p-3 text-start w-8">#</th>
                       <th className="p-3 text-start">اسم المادة / السلعة / الخدمة *</th>
-                      <th className="p-3 text-start w-24">الكمية</th>
-                      <th className="p-3 text-start w-32">سعر الوحدة ({config.currency})</th>
-                      <th className="p-3 text-start w-28">المجموع</th>
-                      <th className="p-3 text-center w-10">حذف</th>
+                      <th className="p-3 text-center w-24">الكمية</th>
+                      <th className="p-3 text-center w-36">سعر الوحدة ({config.currency})</th>
+                      <th className="p-3 text-end w-32">المجموع</th>
+                      <th className="p-3 text-center w-12">حذف</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
                     {items.map((item, idx) => (
-                      <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                        <td className="p-3 text-slate-400 font-mono">{idx + 1}</td>
-                        <td className="p-2">
+                      <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                        <td className="p-3 text-slate-400 font-mono font-bold">{idx + 1}</td>
+                        <td className="p-2.5">
                           <input
                             type="text"
                             value={item.name}
                             onChange={(e) => handleItemChange(idx, 'name', e.target.value)}
-                            placeholder="مثال: زيت 5 لتر، دقيق 50 كلغ، إصلاح شاشة..."
+                            placeholder="مثال: زيت 5 لتر، دقيق 50 كلغ..."
                             required
-                            className="w-full px-3 py-1.5 text-xs font-medium bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                            className="w-full px-3 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
                           />
                         </td>
-                        <td className="p-2">
+                        <td className="p-2.5">
                           <input
                             type="number"
                             min="1"
                             step="1"
                             value={item.quantity}
                             onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
-                            className="w-full px-2.5 py-1.5 text-xs font-bold text-center bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                            className="w-full px-2.5 py-2 text-xs font-bold text-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
                           />
                         </td>
-                        <td className="p-2">
+                        <td className="p-2.5">
                           <input
                             type="number"
                             min="0"
@@ -406,18 +491,18 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                             onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
                             placeholder="0.00"
                             required
-                            className="w-full px-2.5 py-1.5 text-xs font-bold bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                            className="w-full px-2.5 py-2 text-xs font-bold font-mono text-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
                           />
                         </td>
-                        <td className="p-3 font-extrabold text-indigo-600 dark:text-indigo-400">
+                        <td className="p-3 font-mono font-black text-end text-indigo-600 dark:text-indigo-400 text-sm">
                           {formatCurrency(item.total, config.currency, config.language)}
                         </td>
-                        <td className="p-2 text-center">
+                        <td className="p-2.5 text-center">
                           <button
                             type="button"
                             onClick={() => removeItemRow(idx)}
                             disabled={items.length <= 1}
-                            className="p-1 text-slate-400 hover:text-rose-500 disabled:opacity-30 rounded transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-rose-500 disabled:opacity-30 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -431,7 +516,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           </div>
 
           {/* Payment Type Selection & Automatic Debt Automation Options */}
-          <div className="space-y-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+          <div className="space-y-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
             <label className="block text-xs font-extrabold text-slate-900 dark:text-white">
               طريقة تسوية الفاتورة وتأثيرها على دين الزبون:
             </label>
@@ -441,15 +526,15 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
               <button
                 type="button"
                 onClick={() => setPaymentType('credit')}
-                className={`p-3 rounded-xl border text-start flex flex-col gap-1 transition-all ${
+                className={`p-3.5 rounded-2xl border text-start flex flex-col gap-1 transition-all ${
                   paymentType === 'credit'
                     ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-500 text-rose-900 dark:text-rose-200 ring-2 ring-rose-500/30'
                     : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-extrabold">على الحساب (كريدي 100%)</span>
-                  {paymentType === 'credit' && <CheckCircle2 className="w-4 h-4 text-rose-600" />}
+                  <span className="text-xs font-black">على الحساب (كريدي 100%)</span>
+                  {paymentType === 'credit' && <CheckCircle2 className="w-4 h-4 text-rose-600 shrink-0" />}
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   تضاف قيمة الفاتورة كاملة تلقائياً إلى دين الزبون
@@ -460,15 +545,15 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
               <button
                 type="button"
                 onClick={() => setPaymentType('partial')}
-                className={`p-3 rounded-xl border text-start flex flex-col gap-1 transition-all ${
+                className={`p-3.5 rounded-2xl border text-start flex flex-col gap-1 transition-all ${
                   paymentType === 'partial'
                     ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-500 text-amber-900 dark:text-amber-200 ring-2 ring-amber-500/30'
                     : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-extrabold">تسبيق + باقي كريدي</span>
-                  {paymentType === 'partial' && <CheckCircle2 className="w-4 h-4 text-amber-600" />}
+                  <span className="text-xs font-black">تسبيق + باقي كريدي</span>
+                  {paymentType === 'partial' && <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0" />}
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   دفع تسبيق مالي وإضافة الباقي تلقائياً لدين الزبون
@@ -479,15 +564,15 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
               <button
                 type="button"
                 onClick={() => setPaymentType('cash')}
-                className={`p-3 rounded-xl border text-start flex flex-col gap-1 transition-all ${
+                className={`p-3.5 rounded-2xl border text-start flex flex-col gap-1 transition-all ${
                   paymentType === 'cash'
                     ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-900 dark:text-emerald-200 ring-2 ring-emerald-500/30'
                     : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-extrabold">مدفوعة كاش بالكامل</span>
-                  {paymentType === 'cash' && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                  <span className="text-xs font-black">مدفوعة كاش بالكامل</span>
+                  {paymentType === 'cash' && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   سداد كامل فوراً ولا يزداد رصيد دين الزبون
@@ -495,7 +580,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
               </button>
             </div>
 
-            {/* If partial or cash payment, ask for paid amount and payment method */}
+            {/* If partial payment, ask for paid amount and payment method */}
             {paymentType === 'partial' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <div>
@@ -512,7 +597,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                       placeholder="0.00"
                       required
                       max={totalAmount}
-                      className="w-full ps-9 pe-3 py-2 text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                      className="w-full ps-9 pe-3 py-2 text-xs font-bold font-mono bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
                     />
                   </div>
                 </div>
@@ -524,7 +609,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                   <select
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value as any)}
-                    className="w-full px-3 py-2 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                    className="w-full px-3 py-2 text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
                   >
                     <option value="cash">نقداً (كاش)</option>
                     <option value="transfer">تحويل بنكي</option>
@@ -548,7 +633,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                 step="0.01"
                 value={discountInput}
                 onChange={(e) => setDiscountInput(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                className="w-full px-3 py-2 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
               />
             </div>
 
@@ -561,16 +646,16 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="مثال: تسليم المحل، بضاعة أسبوعية، متفق عليها..."
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
               />
             </div>
           </div>
 
           {/* Live Financial Balance Summary Banner (Automatic Debt Calculation) */}
-          <div className="p-4 rounded-2xl bg-indigo-900 text-white space-y-2.5 shadow-md">
+          <div className="p-4 sm:p-5 rounded-2xl bg-indigo-900 text-white space-y-2.5 shadow-lg">
             <div className="flex items-center justify-between text-xs text-indigo-200">
               <span>المجموع الفرعي للسلع:</span>
-              <span className="font-bold text-white">
+              <span className="font-mono font-bold text-white text-sm">
                 {formatCurrency(subtotal, config.currency, config.language)}
               </span>
             </div>
@@ -578,7 +663,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
             {discount > 0 && (
               <div className="flex items-center justify-between text-xs text-amber-300">
                 <span>الخصم المطبق:</span>
-                <span className="font-bold">
+                <span className="font-mono font-bold">
                   -{formatCurrency(discount, config.currency, config.language)}
                 </span>
               </div>
@@ -586,26 +671,26 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
 
             <div className="flex items-center justify-between text-sm font-extrabold pt-2 border-t border-indigo-700/80">
               <span>المبلغ الإجمالي للفاتورة:</span>
-              <span className="text-base text-white">
+              <span className="text-lg font-mono font-black text-white">
                 {formatCurrency(totalAmount, config.currency, config.language)}
               </span>
             </div>
 
             {/* Balance Increase Live Preview */}
-            <div className="mt-3 p-3 rounded-xl bg-indigo-950/80 border border-indigo-700/60 text-xs space-y-1.5">
+            <div className="mt-3 p-3.5 rounded-xl bg-indigo-950 border border-indigo-700/60 text-xs space-y-1.5">
               <div className="flex items-center justify-between text-indigo-300">
                 <span>الرصيد السابق للزبون:</span>
-                <span className="font-bold">
+                <span className="font-mono font-bold">
                   {formatCurrency(previousDebtBalance, config.currency, config.language)}
                 </span>
               </div>
               <div className="flex items-center justify-between text-rose-300 font-bold">
                 <span>+ الزيادة التلقائية على دين الزبون (المتبقي):</span>
-                <span>+{formatCurrency(remainingAmount, config.currency, config.language)}</span>
+                <span className="font-mono font-black">+{formatCurrency(remainingAmount, config.currency, config.language)}</span>
               </div>
-              <div className="flex items-center justify-between text-emerald-300 font-extrabold pt-1 border-t border-indigo-800">
+              <div className="flex items-center justify-between text-emerald-300 font-extrabold pt-1.5 border-t border-indigo-800">
                 <span>= الرصيد الإجمالي الجديد للزبون:</span>
-                <span className="text-sm">
+                <span className="text-base font-mono font-black">
                   {formatCurrency(newEstimatedTotalDebt, config.currency, config.language)}
                 </span>
               </div>
@@ -613,18 +698,18 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-100 dark:border-slate-800">
+          <div className="pt-2 flex flex-col-reverse sm:flex-row items-center justify-end gap-2 sm:gap-3 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+              className="w-full sm:w-auto px-5 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
             >
               إلغاء
             </button>
             <button
               type="submit"
               disabled={!isFormValid}
-              className="px-6 py-2.5 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-xl shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all active:scale-95"
+              className="w-full sm:w-auto px-6 py-2.5 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all active:scale-95"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>إصدار الفاتورة وزيادة الدين تلقائياً</span>

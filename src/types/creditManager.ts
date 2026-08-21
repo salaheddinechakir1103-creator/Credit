@@ -10,6 +10,17 @@ export type Currency = 'MAD' | 'USD' | 'EUR';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
+export interface DebtInstallment {
+  id: string;
+  installmentNumber: number;
+  amount: number;
+  dueDate: string;
+  paidAmount: number;
+  status: 'pending' | 'paid' | 'overdue';
+  paidDate?: string;
+  notes?: string;
+}
+
 export interface Customer {
   id: string;
   name: string;
@@ -33,6 +44,7 @@ export interface Debt {
   status: DebtStatus;
   notes?: string;
   category?: string;
+  installments?: DebtInstallment[];
   createdAt: string;
   updatedAt: string;
 }

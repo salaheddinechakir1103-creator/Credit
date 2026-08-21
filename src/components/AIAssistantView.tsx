@@ -176,7 +176,7 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({
   // Web Speech API for Voice recognition if supported
   const handleVoiceInput = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('المتصفح الحالي لا يدعم التعرف الصوتي المباشر. يمكنك كتابة النص مباشرة.');
+      setParserInput('سجل 150 درهم كريدي على عثمان خنشة طحين');
       return;
     }
 
@@ -347,7 +347,7 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({
               <div className="flex items-center gap-2">
                 <h2 className="text-xl sm:text-2xl font-black tracking-tight">المستشار الذكي (AI Business Assistant)</h2>
                 <span className="px-2.5 py-0.5 text-[10px] font-black rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                  Gemini 3.7
+                  Gemini Flash AI
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-indigo-200 mt-1 max-w-xl leading-relaxed">

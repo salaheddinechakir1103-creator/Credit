@@ -400,7 +400,7 @@ export const WhatsAppMessageModal: React.FC<WhatsAppMessageModalProps> = ({
                   </div>
                   <div>
                     <h4 className="text-xs font-black text-white">صياغة ذكية بالذكاء الاصطناعي</h4>
-                    <span className="text-[10px] text-indigo-200">Gemini 3.7 Flash</span>
+                    <span className="text-[10px] text-indigo-200">Gemini Flash AI</span>
                   </div>
                 </div>
               </div>

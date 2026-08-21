@@ -246,6 +246,54 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
             </div>
           </div>
 
+          {/* Credit Limit Alert Banner */}
+          {selectedCustomer?.creditLimit && selectedCustomer.creditLimit > 0 && (
+            <div
+              className={`p-3.5 rounded-2xl border transition-all space-y-1.5 ${
+                newTotalBalance > selectedCustomer.creditLimit
+                  ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800'
+                  : 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50'
+              }`}
+            >
+              <div className="flex items-center justify-between text-xs">
+                <span
+                  className={`font-bold flex items-center gap-1.5 ${
+                    newTotalBalance > selectedCustomer.creditLimit
+                      ? 'text-rose-700 dark:text-rose-300'
+                      : 'text-emerald-800 dark:text-emerald-300'
+                  }`}
+                >
+                  {newTotalBalance > selectedCustomer.creditLimit ? (
+                    <>⚠️ تحذير: تجاوز سقف الكريدي المحدد!</>
+                  ) : (
+                    <>🎯 سقف الكريدي للزبون:</>
+                  )}
+                </span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                  {formatCurrency(selectedCustomer.creditLimit, config.currency, config.language)}
+                </span>
+              </div>
+
+              {newTotalBalance > selectedCustomer.creditLimit && (
+                <p className="text-[11px] text-rose-600 dark:text-rose-400">
+                  المجموع بعد هذا الدين سيكون{' '}
+                  <strong className="font-mono">
+                    {formatCurrency(newTotalBalance, config.currency, config.language)}
+                  </strong>
+                  ، متجاوزاً السقف بمقدار{' '}
+                  <strong className="font-mono">
+                    {formatCurrency(
+                      newTotalBalance - selectedCustomer.creditLimit,
+                      config.currency,
+                      config.language
+                    )}
+                  </strong>
+                  .
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Previous Balance Banner & Merge Toggle for the concerned customer */}
           {!debtToEdit && customerId && previousBalance > 0 && (
             <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/60 space-y-2">

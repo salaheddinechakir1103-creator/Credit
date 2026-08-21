@@ -25,6 +25,7 @@ import { useCreditManager } from '../context/CreditManagerContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { getTranslation } from '../utils/translations';
 import { WhatsAppMessageModal } from './WhatsAppMessageModal';
+import { PaymentReceiptModal } from './PaymentReceiptModal';
 import { PaymentMethod, Customer, Transaction } from '../types/creditManager';
 
 interface PaymentModalProps {
@@ -109,7 +110,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   );
   const [notes, setNotes] = useState<string>('');
   const [completedPaymentCustomer, setCompletedPaymentCustomer] = useState<Customer | null>(null);
+  const [completedTransaction, setCompletedTransaction] = useState<Transaction | null>(null);
   const [openReceiptWhatsApp, setOpenReceiptWhatsApp] = useState<boolean>(false);
+  const [openDigitalReceiptModal, setOpenDigitalReceiptModal] = useState<boolean>(false);
 
   const handleSelectCustomer = (cId: string) => {
     setSelectedCustomerId(cId);
@@ -152,6 +155,18 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
     const cust = customers.find((c) => c.id === selectedCustomerId);
     if (cust) {
+      const txObj: Transaction = {
+        id: `tx-rec-${Date.now()}`,
+        debtId: selectedDebtId || 'debt-merged',
+        customerId: cust.id,
+        amount: numAmount,
+        paymentDate,
+        paymentMethod,
+        notes: notes || 'سداد دفعة على الحساب',
+        receiptNumber: `REC-${Date.now().toString().slice(-6)}`,
+        createdAt: new Date().toISOString(),
+      };
+      setCompletedTransaction(txObj);
       setCompletedPaymentCustomer(cust);
     } else {
       onClose();
@@ -221,20 +236,31 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               </div>
             </div>
 
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
               <button
-                onClick={() => setOpenReceiptWhatsApp(true)}
-                className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 px-5 py-3 text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-lg shadow-emerald-600/30 transition-all active:scale-95"
+                type="button"
+                onClick={() => setOpenDigitalReceiptModal(true)}
+                className="w-full sm:w-auto flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/80 border border-indigo-200 dark:border-indigo-800 rounded-xl hover:bg-indigo-100 transition-all active:scale-95 shadow-xs"
               >
-                <MessageCircle className="w-4 h-4 fill-current" />
-                <span>إرسال وصل الأداء عبر WhatsApp</span>
+                <Receipt className="w-4 h-4 text-indigo-600" />
+                <span>معاينة وطباعة الوصل</span>
               </button>
 
               <button
-                onClick={onClose}
-                className="w-full sm:w-auto px-5 py-3 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+                type="button"
+                onClick={() => setOpenReceiptWhatsApp(true)}
+                className="w-full sm:w-auto flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow transition-all active:scale-95"
               >
-                تم / إغلاق
+                <MessageCircle className="w-4 h-4 fill-current" />
+                <span>إرسال بالواتساب</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+              >
+                إغلاق
               </button>
             </div>
           </div>
@@ -521,6 +547,18 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           initialTemplate="payment_receipt"
           onClose={() => {
             setOpenReceiptWhatsApp(false);
+            onClose();
+          }}
+        />
+      )}
+
+      {/* Digital Printable Receipt Modal */}
+      {openDigitalReceiptModal && completedPaymentCustomer && completedTransaction && (
+        <PaymentReceiptModal
+          customer={completedPaymentCustomer}
+          transaction={completedTransaction}
+          onClose={() => {
+            setOpenDigitalReceiptModal(false);
             onClose();
           }}
         />

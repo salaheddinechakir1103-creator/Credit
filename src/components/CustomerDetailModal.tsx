@@ -17,6 +17,7 @@ import {
   Share2,
   ShoppingBag,
   Eye,
+  CalendarDays,
 } from 'lucide-react';
 import { useCreditManager } from '../context/CreditManagerContext';
 import { formatCurrency, formatDate, getWhatsAppUrl, getCallUrl, getSmsUrl } from '../utils/formatters';
@@ -25,7 +26,8 @@ import { exportCustomerStatementToExcel } from '../utils/excelExport';
 import { CustomerStatementModal } from './CustomerStatementModal';
 import { WhatsAppMessageModal } from './WhatsAppMessageModal';
 import { InvoiceDetailModal } from './InvoiceDetailModal';
-import { Invoice } from '../types/creditManager';
+import { InstallmentPlanModal } from './InstallmentPlanModal';
+import { Invoice, Debt } from '../types/creditManager';
 
 interface CustomerDetailModalProps {
   onClose: () => void;
@@ -48,6 +50,7 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
   const [isStatementModalOpen, setIsStatementModalOpen] = useState<boolean>(false);
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState<boolean>(false);
   const [selectedInvoiceToView, setSelectedInvoiceToView] = useState<Invoice | null>(null);
+  const [selectedDebtForInstallment, setSelectedDebtForInstallment] = useState<Debt | null>(null);
 
   const customer = customers.find((c) => c.id === selectedCustomerId);
   if (!customer) return null;
@@ -60,6 +63,8 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
   const totalLya = custDebts.filter((d) => d.type === 'lya').reduce((acc, d) => acc + d.remainingAmount, 0);
   const totalAlya = custDebts.filter((d) => d.type === 'alya').reduce((acc, d) => acc + d.remainingAmount, 0);
   const totalPaid = custTransactions.reduce((acc, tx) => acc + tx.amount, 0);
+
+  const isOverCreditLimit = customer.creditLimit && totalLya > customer.creditLimit;
 
   const handleConsolidate = async () => {
     setIsConsolidating(true);
@@ -86,7 +91,20 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
               className="w-14 h-14 rounded-full object-cover ring-4 ring-indigo-500/30"
             />
             <div>
-              <h2 className="text-lg font-bold">{customer.name}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold">{customer.name}</h2>
+                {customer.creditLimit && (
+                  <span
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
+                      isOverCreditLimit
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    }`}
+                  >
+                    السقف: {formatCurrency(customer.creditLimit, config.currency, config.language)}
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-3 text-xs text-indigo-200 mt-1 flex-wrap">
                 <span className="flex items-center gap-1">
                   <Phone className="w-3.5 h-3.5" /> {customer.phone}
@@ -108,7 +126,7 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
           </button>
         </div>
 
-        {/* Action Bar (Call, WhatsApp, SMS, Add Debt, Add Payment, Consolidate, Create Invoice) */}
+        {/* Action Bar */}
         <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <a
@@ -197,6 +215,20 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
           </div>
         </div>
 
+        {/* Credit Limit Alert if Exceeded */}
+        {isOverCreditLimit && (
+          <div className="mx-6 mt-4 p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-2xl flex items-center justify-between text-xs text-rose-800 dark:text-rose-300">
+            <span className="flex items-center gap-1.5 font-bold">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              تنبيه مالي: تجاوز الزبون سقف الكريدي المسموح به (
+              {formatCurrency(customer.creditLimit || 0, config.currency, config.language)})!
+            </span>
+            <span className="font-mono font-black">
+              فارق: {formatCurrency(totalLya - (customer.creditLimit || 0), config.currency, config.language)}
+            </span>
+          </div>
+        )}
+
         {/* Customer Totals Summary Cards */}
         <div className="p-6 grid grid-cols-3 gap-3">
           <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-2xl border border-indigo-100 dark:border-indigo-900/40 text-center">
@@ -270,7 +302,7 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
               custDebts.map((d) => (
                 <div
                   key={d.id}
-                  className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3"
+                  className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div>
                     <div className="flex items-center gap-2">
@@ -286,6 +318,11 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                       <span className="text-xs font-bold text-slate-900 dark:text-white">
                         {d.category || 'دين عام'}
                       </span>
+                      {d.installments && d.installments.length > 0 && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                          {d.installments.filter((i) => i.status === 'paid').length}/{d.installments.length} أقساط
+                        </span>
+                      )}
                     </div>
 
                     <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-3 mt-1">
@@ -295,7 +332,7 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
                     <div className="text-end">
                       <div className="text-xs font-extrabold text-slate-900 dark:text-white">
                         {formatCurrency(d.remainingAmount, config.currency, config.language)}
@@ -304,6 +341,18 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                         من أصل {formatCurrency(d.amount, config.currency, config.language)}
                       </div>
                     </div>
+
+                    {d.remainingAmount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDebtForInstallment(d)}
+                        className="px-2.5 py-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 rounded-xl transition-all flex items-center gap-1"
+                        title="جدول تقسيط وتسوية هذا الدين"
+                      >
+                        <CalendarDays className="w-3.5 h-3.5" />
+                        <span>تقسيط</span>
+                      </button>
+                    )}
 
                     {d.remainingAmount > 0 && (
                       <button
@@ -427,6 +476,15 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
         />
       )}
 
+      {/* Installment Plan Modal */}
+      {selectedDebtForInstallment && (
+        <InstallmentPlanModal
+          debt={selectedDebtForInstallment}
+          customer={customer}
+          onClose={() => setSelectedDebtForInstallment(null)}
+        />
+      )}
+
       {/* Invoice Detail Modal when clicked from inside customer modal */}
       {selectedInvoiceToView && (
         <InvoiceDetailModal
@@ -445,3 +503,4 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
     </div>
   );
 };
+
