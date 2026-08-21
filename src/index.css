@@ -51,3 +51,12 @@ body {
   animation: softPulse 3s infinite ease-in-out;
 }
 
+/* Hide scrollbar for clean horizontal swipe */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+

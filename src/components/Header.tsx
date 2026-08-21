@@ -41,22 +41,22 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddDebt, onOpenCreateInvoi
 
   return (
     <header className="sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
         {/* Brand & Subtitle */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
-            <Wallet className="w-5 h-5" />
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 shrink-0">
+            <Wallet className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <h1 className="text-sm sm:text-base md:text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-tight truncate">
                 {t.appName}
               </h1>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50">
+              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50 shrink-0">
                 <Sparkles className="w-3 h-3 text-indigo-500" /> Pro 2.0
               </span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
+            <p className="text-xs text-slate-500 dark:text-slate-400 hidden md:block truncate">
               {t.appSubtitle}
             </p>
           </div>
@@ -85,12 +85,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddDebt, onOpenCreateInvoi
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Quick Create Invoice Button */}
           {onOpenCreateInvoice && (
             <button
               onClick={onOpenCreateInvoice}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/70 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800 rounded-xl transition-all active:scale-95"
+              className="flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/70 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800 rounded-xl transition-all active:scale-95"
+              title="فاتورة جديدة"
             >
               <Receipt className="w-4 h-4" />
               <span className="hidden md:inline">فاتورة جديدة</span>
@@ -100,7 +101,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddDebt, onOpenCreateInvoi
           {/* Quick Add Debt Button */}
           <button
             onClick={onOpenAddDebt}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm hover:shadow transition-all active:scale-95"
+            className="flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm hover:shadow transition-all active:scale-95"
+            title={t.addDebt}
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">{t.addDebt}</span>
@@ -110,20 +112,20 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddDebt, onOpenCreateInvoi
           <button
             onClick={triggerSync}
             title={t.firebaseSync}
-            className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all relative hidden sm:flex items-center justify-center"
+            className="p-1.5 sm:p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all relative hidden sm:flex items-center justify-center"
           >
-            <CloudCheck className="w-5 h-5 text-emerald-500" />
+            <CloudCheck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />
           </button>
 
           {/* Notifications button */}
           <button
             onClick={onOpenNotifications}
-            className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all relative"
+            className="p-1.5 sm:p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all relative"
             title={t.notifications}
           >
-            <Bell className="w-5 h-5" />
+            <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 end-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+              <span className="absolute top-0.5 end-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-rose-500 text-white text-[9px] sm:text-[10px] font-bold flex items-center justify-center animate-pulse">
                 {unreadCount}
               </span>
             )}
@@ -133,11 +135,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddDebt, onOpenCreateInvoi
           <div className="relative">
             <button
               onClick={() => setShowLangMenu(!showLangMenu)}
-              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-1 text-xs font-semibold"
+              className="p-1.5 sm:p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-0.5 text-xs font-semibold"
               title={t.language}
             >
-              <Globe className="w-4 h-4" />
-              <span className="uppercase">{config.language}</span>
+              <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="uppercase text-[11px] sm:text-xs">{config.language}</span>
             </button>
 
             {showLangMenu && (
@@ -173,27 +175,27 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAddDebt, onOpenCreateInvoi
           {/* Theme Switcher */}
           <button
             onClick={toggleTheme}
-            className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+            className="p-1.5 sm:p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
             title={t.theme}
           >
-            {config.theme === 'dark' ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-600" />}
+            {config.theme === 'dark' ? <Sun className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" /> : <Moon className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" />}
           </button>
 
           {/* Lock App Button */}
           <button
             onClick={lockApp}
-            className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+            className="p-1.5 sm:p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all hidden sm:flex items-center justify-center"
             title={t.lockApp}
           >
-            <Lock className="w-5 h-5 text-slate-500 hover:text-slate-900 dark:hover:text-white" />
+            <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500 hover:text-slate-900 dark:hover:text-white" />
           </button>
 
           {/* User Profile Avatar */}
-          <div className="ps-1 border-s border-slate-200 dark:border-slate-800">
+          <div className="ps-0.5 sm:ps-1 border-s border-slate-200 dark:border-slate-800">
             <img
               src={userProfile.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=250'}
               alt={userProfile.name}
-              className="w-8 h-8 rounded-full object-cover ring-2 ring-indigo-500/30"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover ring-2 ring-indigo-500/30"
             />
           </div>
         </div>
