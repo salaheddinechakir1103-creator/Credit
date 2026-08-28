@@ -18,12 +18,14 @@ import {
   TrendingUp,
   CreditCard,
   ShoppingBag,
+  Edit,
 } from 'lucide-react';
 import { useCreditManager } from '../context/CreditManagerContext';
 import { Invoice } from '../types/creditManager';
 import { formatCurrency, formatDate, getWhatsAppUrl } from '../utils/formatters';
 import { getTranslation } from '../utils/translations';
 import { InvoiceDetailModal } from './InvoiceDetailModal';
+import { CreateInvoiceModal } from './CreateInvoiceModal';
 
 interface InvoiceListProps {
   onOpenCreateInvoice: (customerId?: string) => void;
@@ -36,6 +38,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onOpenCreateInvoice })
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterType, setFilterType] = useState<string>('all'); // all, credit, partial, cash
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [invoiceToEdit, setInvoiceToEdit] = useState<Invoice | null>(null);
 
   // Filtered invoices
   const filteredInvoices = useMemo(() => {
@@ -119,6 +122,24 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onOpenCreateInvoice })
       )}*`;
     }
 
+    const previousBalance =
+      inv.previousBalance !== undefined
+        ? inv.previousBalance
+        : debts
+            .filter(
+              (d) =>
+                d.customerId === inv.customerId &&
+                d.type === 'lya' &&
+                d.id !== inv.debtId &&
+                d.remainingAmount > 0
+            )
+            .reduce((sum, d) => sum + d.remainingAmount, 0);
+
+    const newTotalDebt =
+      inv.newTotalBalance !== undefined
+        ? inv.newTotalBalance
+        : previousBalance + inv.remainingAmount;
+
     const message = `السلام عليكم ورحمة الله وبركاته 🌹
 أخي الفاضل / أختي الكريمة: *${customer.name}*
 تحية طيبة مباركة من *${userProfile.businessName || 'متجر الأمانة للتجارة'}* ✨
@@ -129,8 +150,26 @@ ${inv.dueDate ? `⏰ موعد السداد: ${formatDate(inv.dueDate, config.lan
 🛒 *تفاصيل المشتريات:*
 ${itemsSummary}
 
-💰 *إجمالي الفاتورة:* *${formatCurrency(inv.totalAmount, config.currency, config.language)}*
+💰 *إجمالي الفاتورة:* *${formatCurrency(inv.totalAmount, config.currency, config.language)}*${
+  (inv.transportFee || 0) > 0
+    ? `\n🚚 *مصاريف النقل (Transport):* ${formatCurrency(
+        inv.transportFee!,
+        config.currency,
+        config.language
+      )}`
+    : ''
+}
 ${paymentStatusText}
+📋 *الرصيد السابق (الكريدي القديم):* ${formatCurrency(previousBalance, config.currency, config.language)}
+${
+  inv.remainingAmount > 0
+    ? `📊 *إجمالي رصيدكم الكلي الحالي في السجل:* *${formatCurrency(
+        newTotalDebt,
+        config.currency,
+        config.language
+      )}*`
+    : ''
+}
 
 نشكركم جزيلاً على ثقتكم الغالية ويسرنا دائماً خدمتكم بأفضل ما لدينا 🌸`;
 
@@ -371,6 +410,14 @@ ${paymentStatusText}
                       <span>عرض وطباعة</span>
                     </button>
 
+                    <button
+                      onClick={() => setInvoiceToEdit(inv)}
+                      className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-xl transition-colors"
+                      title="تعديل الفاتورة"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+
                     {customer?.phone && (
                       <button
                         onClick={() => handleSendWhatsApp(inv)}
@@ -507,6 +554,14 @@ ${paymentStatusText}
                               <Eye className="w-4 h-4" />
                             </button>
 
+                            <button
+                              onClick={() => setInvoiceToEdit(inv)}
+                              className="p-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/60 rounded-lg transition-colors"
+                              title="تعديل الفاتورة"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+
                             {customer?.phone && (
                               <button
                                 onClick={() => handleSendWhatsApp(inv)}
@@ -541,6 +596,18 @@ ${paymentStatusText}
         <InvoiceDetailModal
           invoice={selectedInvoice}
           onClose={() => setSelectedInvoice(null)}
+          onEdit={(inv) => {
+            setSelectedInvoice(null);
+            setInvoiceToEdit(inv);
+          }}
+        />
+      )}
+
+      {/* Edit Invoice Modal Overlay */}
+      {invoiceToEdit && (
+        <CreateInvoiceModal
+          invoiceToEdit={invoiceToEdit}
+          onClose={() => setInvoiceToEdit(null)}
         />
       )}
     </div>

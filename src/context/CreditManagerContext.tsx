@@ -974,12 +974,79 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const updateInvoice = async (id: string, updates: Partial<Invoice>) => {
-    const updated = { ...updates, updatedAt: new Date().toISOString() };
+    const existing = invoices.find((inv) => inv.id === id);
+    if (!existing) return;
+
+    const nowIso = new Date().toISOString();
+    const updatedInvoice: Invoice = { ...existing, ...updates, updatedAt: nowIso };
+
     setInvoices((prev) =>
-      prev.map((inv) => (inv.id === id ? ({ ...inv, ...updated } as Invoice) : inv))
+      prev.map((inv) => (inv.id === id ? updatedInvoice : inv))
     );
+
+    // If there is an associated debt, update it as well
+    if (updatedInvoice.debtId) {
+      const itemsSummary = updatedInvoice.items
+        ? updatedInvoice.items.map((it) => `${it.name} (${it.quantity}x)`).join('، ')
+        : '';
+      const todayStr = new Date().toISOString().split('T')[0];
+      const isOverdue = updatedInvoice.dueDate ? updatedInvoice.dueDate < todayStr : false;
+
+      const debtStatus: Debt['status'] =
+        updatedInvoice.remainingAmount === 0
+          ? 'paid'
+          : updatedInvoice.paidAmount > 0
+          ? 'partial'
+          : isOverdue
+          ? 'overdue'
+          : 'unpaid';
+
+      setDebts((prev) =>
+        prev.map((d) => {
+          if (d.id === updatedInvoice.debtId) {
+            return {
+              ...d,
+              customerId: updatedInvoice.customerId,
+              amount: updatedInvoice.totalAmount,
+              remainingAmount: updatedInvoice.remainingAmount,
+              date: updatedInvoice.date,
+              dueDate: updatedInvoice.dueDate || d.dueDate,
+              status: debtStatus,
+              notes: `فاتورة #${updatedInvoice.invoiceNumber}: ${itemsSummary}${
+                updatedInvoice.notes ? ` | ${updatedInvoice.notes}` : ''
+              }`,
+              updatedAt: nowIso,
+            };
+          }
+          return d;
+        })
+      );
+
+      // Update in firestore
+      try {
+        await setDoc(
+          doc(db, 'debts', updatedInvoice.debtId),
+          cleanForFirestore({
+            customerId: updatedInvoice.customerId,
+            amount: updatedInvoice.totalAmount,
+            remainingAmount: updatedInvoice.remainingAmount,
+            date: updatedInvoice.date,
+            dueDate: updatedInvoice.dueDate,
+            status: debtStatus,
+            notes: `فاتورة #${updatedInvoice.invoiceNumber}: ${itemsSummary}${
+              updatedInvoice.notes ? ` | ${updatedInvoice.notes}` : ''
+            }`,
+            updatedAt: nowIso,
+          }),
+          { merge: true }
+        );
+      } catch (e) {
+        console.error('Update linked debt error:', e);
+      }
+    }
+
     try {
-      await setDoc(doc(db, 'invoices', id), cleanForFirestore(updated), { merge: true });
+      await setDoc(doc(db, 'invoices', id), cleanForFirestore(updatedInvoice), { merge: true });
     } catch (e) {
       console.error('Update invoice firestore error:', e);
     }

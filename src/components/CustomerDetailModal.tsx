@@ -18,6 +18,7 @@ import {
   ShoppingBag,
   Eye,
   CalendarDays,
+  Edit,
 } from 'lucide-react';
 import { useCreditManager } from '../context/CreditManagerContext';
 import { formatCurrency, formatDate, getWhatsAppUrl, getCallUrl, getSmsUrl } from '../utils/formatters';
@@ -26,6 +27,7 @@ import { exportCustomerStatementToExcel } from '../utils/excelExport';
 import { CustomerStatementModal } from './CustomerStatementModal';
 import { WhatsAppMessageModal } from './WhatsAppMessageModal';
 import { InvoiceDetailModal } from './InvoiceDetailModal';
+import { CreateInvoiceModal } from './CreateInvoiceModal';
 import { InstallmentPlanModal } from './InstallmentPlanModal';
 import { Invoice, Debt } from '../types/creditManager';
 
@@ -50,6 +52,7 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
   const [isStatementModalOpen, setIsStatementModalOpen] = useState<boolean>(false);
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState<boolean>(false);
   const [selectedInvoiceToView, setSelectedInvoiceToView] = useState<Invoice | null>(null);
+  const [invoiceToEdit, setInvoiceToEdit] = useState<Invoice | null>(null);
   const [selectedDebtForInstallment, setSelectedDebtForInstallment] = useState<Debt | null>(null);
 
   const customer = customers.find((c) => c.id === selectedCustomerId);
@@ -426,13 +429,23 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                       )}
                     </div>
 
-                    <button
-                      onClick={() => setSelectedInvoiceToView(inv)}
-                      className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 rounded-lg transition-colors"
-                      title="عرض وطباعة الفاتورة"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setSelectedInvoiceToView(inv)}
+                        className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 rounded-lg transition-colors"
+                        title="عرض وطباعة الفاتورة"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => setInvoiceToEdit(inv)}
+                        className="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/60 rounded-lg transition-colors"
+                        title="تعديل الفاتورة"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))
@@ -490,6 +503,18 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
         <InvoiceDetailModal
           invoice={selectedInvoiceToView}
           onClose={() => setSelectedInvoiceToView(null)}
+          onEdit={(inv) => {
+            setSelectedInvoiceToView(null);
+            setInvoiceToEdit(inv);
+          }}
+        />
+      )}
+
+      {/* Edit Invoice Modal Overlay */}
+      {invoiceToEdit && (
+        <CreateInvoiceModal
+          invoiceToEdit={invoiceToEdit}
+          onClose={() => setInvoiceToEdit(null)}
         />
       )}
 

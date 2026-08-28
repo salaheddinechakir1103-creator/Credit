@@ -15,6 +15,7 @@ import {
   ShoppingBag,
   CreditCard,
   Percent,
+  Edit,
 } from 'lucide-react';
 import { useCreditManager } from '../context/CreditManagerContext';
 import { Invoice } from '../types/creditManager';
@@ -24,12 +25,14 @@ interface InvoiceDetailModalProps {
   invoice: Invoice;
   onClose: () => void;
   onDelete?: () => void;
+  onEdit?: (invoice: Invoice) => void;
 }
 
 export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   invoice,
   onClose,
   onDelete,
+  onEdit,
 }) => {
   const { customers, deleteInvoice, config, userProfile, debts } = useCreditManager();
   const customer = customers.find((c) => c.id === invoice.customerId);
@@ -38,6 +41,25 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   const currentTotalDebt = debts
     .filter((d) => d.customerId === invoice.customerId && d.type === 'lya' && d.remainingAmount > 0)
     .reduce((sum, d) => sum + d.remainingAmount, 0);
+
+  // Calculate previous balance (الرصيد السابق / الكريدي القديم) and new total balance
+  const previousBalance =
+    invoice.previousBalance !== undefined
+      ? invoice.previousBalance
+      : debts
+          .filter(
+            (d) =>
+              d.customerId === invoice.customerId &&
+              d.type === 'lya' &&
+              d.id !== invoice.debtId &&
+              d.remainingAmount > 0
+          )
+          .reduce((sum, d) => sum + d.remainingAmount, 0);
+
+  const newTotalDebt =
+    invoice.newTotalBalance !== undefined
+      ? invoice.newTotalBalance
+      : previousBalance + invoice.remainingAmount;
 
   const [isPrinting, setIsPrinting] = useState(false);
 
@@ -98,12 +120,21 @@ ${invoice.dueDate ? `⏰ موعد السداد المتفق عليه: ${formatDa
 🛒 *تفاصيل المشتريات:*
 ${itemsSummary}
 
-💰 *إجمالي الفاتورة:* *${formatCurrency(invoice.totalAmount, config.currency, config.language)}*
+💰 *إجمالي الفاتورة:* *${formatCurrency(invoice.totalAmount, config.currency, config.language)}*${
+  (invoice.transportFee || 0) > 0
+    ? `\n🚚 *مصاريف النقل (Transport):* ${formatCurrency(
+        invoice.transportFee!,
+        config.currency,
+        config.language
+      )}`
+    : ''
+}
 ${paymentStatusText}
+📋 *الرصيد السابق (الكريدي القديم):* ${formatCurrency(previousBalance, config.currency, config.language)}
 ${
   invoice.remainingAmount > 0
-    ? `\n📊 *إجمالي رصيدكم الكلي الحالي في السجل:* *${formatCurrency(
-        currentTotalDebt,
+    ? `📊 *إجمالي رصيدكم الكلي الحالي في السجل:* *${formatCurrency(
+        newTotalDebt,
         config.currency,
         config.language
       )}*`
@@ -142,6 +173,19 @@ ${userProfile.phone ? `📞 للتواصل والاستفسار: ${userProfile.p
           </div>
 
           <div className="flex items-center gap-2">
+            {onEdit && (
+              <button
+                onClick={() => {
+                  onEdit(invoice);
+                }}
+                className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow transition-all active:scale-95"
+                title="تعديل الفاتورة"
+              >
+                <Edit className="w-4 h-4" />
+                <span className="hidden sm:inline">تعديل الفاتورة</span>
+              </button>
+            )}
+
             {customer?.phone && (
               <button
                 onClick={handleSendWhatsApp}
@@ -284,28 +328,28 @@ ${userProfile.phone ? `📞 للتواصل والاستفسار: ${userProfile.p
           {/* Items Table */}
           <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
-              <table className="w-full text-xs text-start min-w-[340px]">
+              <table className="w-full text-xs">
                 <thead className="bg-slate-100 dark:bg-slate-800 font-extrabold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
                   <tr>
-                    <th className="p-3 text-start w-8">#</th>
-                    <th className="p-3 text-start">اسم المادة / السلعة</th>
-                    <th className="p-3 text-center w-16">الكمية</th>
-                    <th className="p-3 text-end w-24">سعر الوحدة</th>
-                    <th className="p-3 text-end w-28">المجموع</th>
+                    <th className="py-2.5 px-3 text-center w-20">الكمية (Qté)</th>
+                    <th className="py-2.5 px-3 text-start">الموديل / السلعة (Modèle)</th>
+                    <th className="py-2.5 px-3 text-center w-32 sm:w-36">السعر (Prix)</th>
+                    <th className="py-2.5 px-3 text-end w-32 sm:w-36">السعر الإجمالي (Total)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
                   {invoice.items.map((item, idx) => (
                     <tr key={item.id || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      <td className="p-3 text-slate-400 font-mono font-bold">{idx + 1}</td>
-                      <td className="p-3 font-bold text-slate-900 dark:text-white">
+                      <td className="py-2.5 px-3 text-center font-black font-mono text-slate-900 dark:text-white text-xs bg-slate-50/50 dark:bg-slate-800/30">
+                        {item.quantity}
+                      </td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white text-start">
                         {item.name}
                       </td>
-                      <td className="p-3 text-center font-bold font-mono">{item.quantity}</td>
-                      <td className="p-3 text-end font-mono text-slate-600 dark:text-slate-300">
+                      <td className="py-2.5 px-3 text-center font-mono font-semibold text-slate-700 dark:text-slate-300">
                         {formatCurrency(item.unitPrice, config.currency, config.language)}
                       </td>
-                      <td className="p-3 text-end font-mono font-black text-indigo-600 dark:text-indigo-400">
+                      <td className="py-2.5 px-3 text-end font-mono font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50/30 dark:bg-indigo-950/20">
                         {formatCurrency(item.total, config.currency, config.language)}
                       </td>
                     </tr>
@@ -351,6 +395,15 @@ ${userProfile.phone ? `📞 للتواصل والاستفسار: ${userProfile.p
                 </div>
               )}
 
+              {(invoice.transportFee || 0) > 0 && (
+                <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400">
+                  <span>مصاريف النقل (Transport):</span>
+                  <span className="font-bold font-mono">
+                    +{formatCurrency(invoice.transportFee!, config.currency, config.language)}
+                  </span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between text-sm font-black text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">
                 <span>إجمالي الفاتورة:</span>
                 <span className="text-base text-indigo-600 dark:text-indigo-400">
@@ -369,6 +422,27 @@ ${userProfile.phone ? `📞 للتواصل والاستفسار: ${userProfile.p
                 <span>المبلغ المتبقي (المضاف للكريدي):</span>
                 <span className="text-base">
                   {formatCurrency(invoice.remainingAmount, config.currency, config.language)}
+                </span>
+              </div>
+
+              {/* Total l9dim (الكريدي القديم / الرصيد السابق) */}
+              <div className="flex items-center justify-between text-slate-700 dark:text-slate-300 font-bold pt-2 border-t border-dashed border-slate-300 dark:border-slate-700">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                  <span>الرصيد السابق (الكريدي القديم):</span>
+                </span>
+                <span className="font-black font-mono text-slate-900 dark:text-slate-100 text-sm">
+                  {formatCurrency(previousBalance, config.currency, config.language)}
+                </span>
+              </div>
+
+              {/* Total Jdid (الرصيد الإجمالي الجديد بعد الفاتورة) */}
+              <div className="flex items-center justify-between text-indigo-900 dark:text-indigo-200 bg-indigo-50/90 dark:bg-indigo-950/70 border border-indigo-200 dark:border-indigo-800 p-2.5 rounded-xl font-black mt-1">
+                <span className="flex items-center gap-1.5">
+                  <span>الرصيد الإجمالي الجديد (مجموع الكريدي):</span>
+                </span>
+                <span className="text-base font-mono font-black text-indigo-700 dark:text-indigo-300">
+                  {formatCurrency(newTotalDebt, config.currency, config.language)}
                 </span>
               </div>
             </div>

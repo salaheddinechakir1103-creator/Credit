@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   X,
   Plus,
@@ -16,62 +16,98 @@ import {
   ShoppingBag,
   TrendingUp,
   Percent,
+  Truck,
+  Edit,
 } from 'lucide-react';
 import { useCreditManager } from '../context/CreditManagerContext';
-import { Customer, InvoiceItem, InvoicePaymentType } from '../types/creditManager';
+import { Customer, Invoice, InvoiceItem, InvoicePaymentType } from '../types/creditManager';
 import { formatCurrency } from '../utils/formatters';
 import { getTranslation } from '../utils/translations';
 
 interface CreateInvoiceModalProps {
   defaultCustomerId?: string;
+  invoiceToEdit?: Invoice | null;
   onClose: () => void;
   onInvoiceCreated?: (invoiceId: string) => void;
 }
 
 export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   defaultCustomerId,
+  invoiceToEdit,
   onClose,
   onInvoiceCreated,
 }) => {
-  const { customers, debts, invoices, createInvoice, config } = useCreditManager();
+  const { customers, debts, invoices, createInvoice, updateInvoice, config } = useCreditManager();
   const t = getTranslation(config.language);
+
+  const isEditing = !!invoiceToEdit;
 
   // Suggested next invoice number
   const nextInvoiceNumber = useMemo(() => {
+    if (invoiceToEdit) return invoiceToEdit.invoiceNumber;
     const year = new Date().getFullYear();
     const count = invoices.length + 1;
     return `FAC-${year}-${String(count).padStart(3, '0')}`;
-  }, [invoices]);
+  }, [invoices, invoiceToEdit]);
 
-  const initialCustId = defaultCustomerId || (customers.length === 1 ? customers[0].id : '');
+  const initialCustId =
+    invoiceToEdit?.customerId ||
+    defaultCustomerId ||
+    (customers.length === 1 ? customers[0].id : '');
+
   const [customerId, setCustomerId] = useState<string>(initialCustId);
   const [searchCustomer, setSearchCustomer] = useState<string>('');
-  const [invoiceNumber, setInvoiceNumber] = useState<string>(nextInvoiceNumber);
-  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [dueDate, setDueDate] = useState<string>(
-    new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0]
+  const [invoiceNumber, setInvoiceNumber] = useState<string>(
+    invoiceToEdit?.invoiceNumber || nextInvoiceNumber
   );
-  const [paymentType, setPaymentType] = useState<InvoicePaymentType>('credit');
-  const [paidAmountInput, setPaidAmountInput] = useState<string>('');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer' | 'card' | 'check'>('cash');
-  const [discountInput, setDiscountInput] = useState<string>('0');
+  const [date, setDate] = useState<string>(
+    invoiceToEdit?.date || new Date().toISOString().split('T')[0]
+  );
+  const [dueDate, setDueDate] = useState<string>(
+    invoiceToEdit?.dueDate ||
+      new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0]
+  );
+  const [paymentType, setPaymentType] = useState<InvoicePaymentType>(
+    invoiceToEdit?.paymentType || 'credit'
+  );
+  const [paidAmountInput, setPaidAmountInput] = useState<string>(
+    invoiceToEdit && invoiceToEdit.paidAmount > 0 ? String(invoiceToEdit.paidAmount) : ''
+  );
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer' | 'card' | 'check'>(
+    invoiceToEdit?.paymentMethod || 'cash'
+  );
+  const [discountInput, setDiscountInput] = useState<string>(
+    invoiceToEdit && invoiceToEdit.discount ? String(invoiceToEdit.discount) : '0'
+  );
+  const [transportFeeInput, setTransportFeeInput] = useState<string>(
+    invoiceToEdit && invoiceToEdit.transportFee ? String(invoiceToEdit.transportFee) : '0'
+  );
   const [taxPercentInput, setTaxPercentInput] = useState<string>('0');
-  const [notes, setNotes] = useState<string>('');
+  const [notes, setNotes] = useState<string>(invoiceToEdit?.notes || '');
 
   // Invoice Items
-  const [items, setItems] = useState<InvoiceItem[]>([
-    { id: `it-${Date.now()}-1`, name: '', quantity: 1, unitPrice: 0, total: 0 },
-  ]);
+  const [items, setItems] = useState<InvoiceItem[]>(() => {
+    if (invoiceToEdit && invoiceToEdit.items && invoiceToEdit.items.length > 0) {
+      return invoiceToEdit.items.map((it) => ({ ...it }));
+    }
+    return [{ id: `it-${Date.now()}-1`, name: '', quantity: 1, unitPrice: 0, total: 0 }];
+  });
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
 
-  // Existing debt for this customer
+  // Existing debt for this customer (excluding this invoice's debt if editing)
   const previousDebtBalance = useMemo(() => {
     if (!customerId) return 0;
     return debts
-      .filter((d) => d.customerId === customerId && d.type === 'lya' && d.remainingAmount > 0)
+      .filter(
+        (d) =>
+          d.customerId === customerId &&
+          d.type === 'lya' &&
+          d.remainingAmount > 0 &&
+          (!isEditing || d.id !== invoiceToEdit?.debtId)
+      )
       .reduce((sum, d) => sum + d.remainingAmount, 0);
-  }, [debts, customerId]);
+  }, [debts, customerId, isEditing, invoiceToEdit]);
 
   // Customer search filtering
   const filteredCustomers = useMemo(() => {
@@ -130,10 +166,11 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   }, [items]);
 
   const discount = Math.max(0, parseFloat(discountInput) || 0);
+  const transportFee = Math.max(0, parseFloat(transportFeeInput) || 0);
   const taxPercent = Math.max(0, parseFloat(taxPercentInput) || 0);
   const afterDiscount = Math.max(0, subtotal - discount);
   const taxAmount = (afterDiscount * taxPercent) / 100;
-  const totalAmount = Math.round((afterDiscount + taxAmount) * 100) / 100;
+  const totalAmount = Math.round((afterDiscount + taxAmount + transportFee) * 100) / 100;
 
   // Paid & Remaining according to payment type
   const calculatedPaidAmount = useMemo(() => {
@@ -169,6 +206,34 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
 
     if (validItems.length === 0) return;
 
+    if (isEditing && invoiceToEdit) {
+      await updateInvoice(invoiceToEdit.id, {
+        invoiceNumber: invoiceNumber.trim(),
+        customerId,
+        date,
+        dueDate: paymentType === 'cash' ? date : dueDate,
+        items: validItems,
+        subtotal,
+        discount,
+        tax: taxAmount,
+        transportFee,
+        totalAmount,
+        paidAmount: calculatedPaidAmount,
+        remainingAmount,
+        paymentType,
+        paymentMethod: calculatedPaidAmount > 0 ? paymentMethod : undefined,
+        notes: notes.trim(),
+        previousBalance: previousDebtBalance,
+        newTotalBalance: newEstimatedTotalDebt,
+      });
+
+      if (onInvoiceCreated) {
+        onInvoiceCreated(invoiceToEdit.id);
+      }
+      onClose();
+      return;
+    }
+
     const created = await createInvoice({
       invoiceNumber: invoiceNumber.trim(),
       customerId,
@@ -178,12 +243,15 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
       subtotal,
       discount,
       tax: taxAmount,
+      transportFee,
       totalAmount,
       paidAmount: calculatedPaidAmount,
       remainingAmount,
       paymentType,
       paymentMethod: calculatedPaidAmount > 0 ? paymentMethod : undefined,
       notes: notes.trim(),
+      previousBalance: previousDebtBalance,
+      newTotalBalance: newEstimatedTotalDebt,
     });
 
     if (onInvoiceCreated) {
@@ -199,17 +267,23 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         <div className="px-6 py-5 bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center border border-white/15">
-              <Receipt className="w-5 h-5 text-indigo-200" />
+              {isEditing ? (
+                <Edit className="w-5 h-5 text-amber-300" />
+              ) : (
+                <Receipt className="w-5 h-5 text-indigo-200" />
+              )}
             </div>
             <div>
               <h2 className="text-base font-extrabold flex items-center gap-2">
-                <span>إنشاء فاتورة جديدة للزبون</span>
+                <span>{isEditing ? `تعديل الفاتورة #${invoiceNumber}` : 'إنشاء فاتورة جديدة للزبون'}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   تحديث الرصيد تلقائياً
                 </span>
               </h2>
               <p className="text-xs text-indigo-200/80 mt-0.5">
-                تضاف قيمة الفاتورة غير المسددة مباشرة وبشكل تلقائي إلى حساب دين الزبون
+                {isEditing
+                  ? 'قم بتعديل السلع أو الكميات أو الموديلات وسيتم تحديث الحساب والدين تلقائياً'
+                  : 'تضاف قيمة الفاتورة غير المسددة مباشرة وبشكل تلقائي إلى حساب دين الزبون'}
               </p>
             </div>
           </div>
@@ -247,7 +321,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                     </div>
                   </div>
 
-                  {!defaultCustomerId && (
+                  {!defaultCustomerId && !isEditing && (
                     <button
                       type="button"
                       onClick={() => {
@@ -343,12 +417,12 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
             </div>
           </div>
 
-          {/* Items Section: Cards on Mobile, Table on Desktop */}
+          {/* Items Section: Cards on Mobile, Table on Desktop (quantite, model, prix, prix total) */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                 <ShoppingBag className="w-4 h-4 text-indigo-600" />
-                <span>تفاصيل السلع والمواد المفوترة ({items.length})</span>
+                <span>تفاصيل السلع والموديلات (Quantité, Modèle, Prix, Prix Total) ({items.length})</span>
               </label>
               <button
                 type="button"
@@ -356,7 +430,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                 className="px-3.5 py-2 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/80 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 rounded-xl flex items-center gap-1.5 transition-all shadow-xs"
               >
                 <Plus className="w-4 h-4 text-indigo-600" />
-                <span>إضافة مادة جديدة</span>
+                <span>إضافة موديل / صنف جديد</span>
               </button>
             </div>
 
@@ -372,7 +446,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                       <span className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 flex items-center justify-center text-[11px] font-black">
                         {idx + 1}
                       </span>
-                      <span>السلعة / المادة</span>
+                      <span>السلعة / الموديل #{idx + 1}</span>
                     </span>
                     <button
                       type="button"
@@ -385,26 +459,11 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                     </button>
                   </div>
 
-                  {/* Name Input */}
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                      اسم المادة أو الخدمة *
-                    </label>
-                    <input
-                      type="text"
-                      value={item.name}
-                      onChange={(e) => handleItemChange(idx, 'name', e.target.value)}
-                      placeholder="مثال: زيت 5 لتر، دقيق 50 كلغ، إصلاح شاشة..."
-                      required
-                      className="w-full px-3 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
-                    />
-                  </div>
-
-                  {/* Quantity & Unit Price in 2 Columns */}
-                  <div className="grid grid-cols-2 gap-3">
+                  {/* Quantity & Model Input */}
+                  <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                        الكمية
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
+                        الكمية (Qté) *
                       </label>
                       <input
                         type="number"
@@ -412,13 +471,30 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                         step="1"
                         value={item.quantity}
                         onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
-                        className="w-full px-3 py-2 text-xs font-bold text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                        className="w-full px-2.5 py-2 text-xs font-black text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
                       />
                     </div>
 
+                    <div className="col-span-2">
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
+                        الموديل / الصنف (Modèle) *
+                      </label>
+                      <input
+                        type="text"
+                        value={item.name}
+                        onChange={(e) => handleItemChange(idx, 'name', e.target.value)}
+                        placeholder="مثال: Prada, LV, tn 36/40, زيت..."
+                        required
+                        className="w-full px-3 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Unit Price & Total in 2 Columns */}
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                        سعر الوحدة ({config.currency})
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
+                        سعر الوحدة (Prix) ({config.currency}) *
                       </label>
                       <input
                         type="number"
@@ -431,58 +507,57 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                         className="w-full px-3 py-2 text-xs font-bold font-mono text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
                       />
                     </div>
-                  </div>
 
-                  {/* Row Subtotal */}
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700/80 text-xs">
-                    <span className="text-slate-500 dark:text-slate-400">إجمالي هذا الصنف:</span>
-                    <span className="font-mono font-black text-sm text-indigo-600 dark:text-indigo-400">
-                      {formatCurrency(item.total, config.currency, config.language)}
-                    </span>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
+                        السعر الإجمالي (Prix Total)
+                      </label>
+                      <div className="px-3 py-2 text-xs font-mono font-black text-center bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 rounded-xl text-indigo-700 dark:text-indigo-300">
+                        {formatCurrency(item.total, config.currency, config.language)}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Desktop View: Full Table */}
+            {/* Desktop View: Full Table (quantite , model , prix , prix total) */}
             <div className="hidden md:block border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-xs">
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-start">
                   <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700 font-bold">
                     <tr>
-                      <th className="p-3 text-start w-8">#</th>
-                      <th className="p-3 text-start">اسم المادة / السلعة / الخدمة *</th>
-                      <th className="p-3 text-center w-24">الكمية</th>
-                      <th className="p-3 text-center w-36">سعر الوحدة ({config.currency})</th>
-                      <th className="p-3 text-end w-32">المجموع</th>
-                      <th className="p-3 text-center w-12">حذف</th>
+                      <th className="py-2.5 px-3 text-center w-24">الكمية (Qté)</th>
+                      <th className="py-2.5 px-3 text-start">الموديل / الصنف (Modèle) *</th>
+                      <th className="py-2.5 px-3 text-center w-36">السعر (Prix) ({config.currency})</th>
+                      <th className="py-2.5 px-3 text-end w-36">السعر الإجمالي (Total)</th>
+                      <th className="py-2.5 px-3 text-center w-12">حذف</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
                     {items.map((item, idx) => (
                       <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                        <td className="p-3 text-slate-400 font-mono font-bold">{idx + 1}</td>
-                        <td className="p-2.5">
-                          <input
-                            type="text"
-                            value={item.name}
-                            onChange={(e) => handleItemChange(idx, 'name', e.target.value)}
-                            placeholder="مثال: زيت 5 لتر، دقيق 50 كلغ..."
-                            required
-                            className="w-full px-3 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
-                          />
-                        </td>
-                        <td className="p-2.5">
+                        <td className="py-2 px-2.5">
                           <input
                             type="number"
                             min="1"
                             step="1"
                             value={item.quantity}
                             onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
-                            className="w-full px-2.5 py-2 text-xs font-bold text-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                            className="w-full px-2.5 py-2 text-xs font-black text-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
                           />
                         </td>
-                        <td className="p-2.5">
+                        <td className="py-2 px-2.5">
+                          <input
+                            type="text"
+                            value={item.name}
+                            onChange={(e) => handleItemChange(idx, 'name', e.target.value)}
+                            placeholder="مثال: Prada, LV, Nike tn, زيت 5 لتر..."
+                            required
+                            className="w-full px-3 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                          />
+                        </td>
+                        <td className="py-2 px-2.5">
                           <input
                             type="number"
                             min="0"
@@ -494,15 +569,16 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                             className="w-full px-2.5 py-2 text-xs font-bold font-mono text-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
                           />
                         </td>
-                        <td className="p-3 font-mono font-black text-end text-indigo-600 dark:text-indigo-400 text-sm">
+                        <td className="py-2 px-3 font-mono font-black text-end text-indigo-600 dark:text-indigo-400 text-sm">
                           {formatCurrency(item.total, config.currency, config.language)}
                         </td>
-                        <td className="p-2.5 text-center">
+                        <td className="py-2 px-2.5 text-center">
                           <button
                             type="button"
                             onClick={() => removeItemRow(idx)}
                             disabled={items.length <= 1}
                             className="p-1.5 text-slate-400 hover:text-rose-500 disabled:opacity-30 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                            title="حذف هذا الصنف"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -621,7 +697,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
             )}
           </div>
 
-          {/* Discount & Additional Notes */}
+          {/* Discount, Transport & Additional Notes */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -633,19 +709,36 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                 step="0.01"
                 value={discountInput}
                 onChange={(e) => setDiscountInput(e.target.value)}
+                placeholder="0.00"
                 className="w-full px-3 py-2 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
               />
             </div>
 
-            <div className="sm:col-span-2">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                <Truck className="w-3.5 h-3.5 text-indigo-500" />
+                <span>مصاريف النقل / Transport ({config.currency})</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={transportFeeInput}
+                onChange={(e) => setTransportFeeInput(e.target.value)}
+                placeholder="0.00"
+                className="w-full px-3 py-2 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+              />
+            </div>
+
+            <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                ملاحظات الفاتورة أو شروط التسليم
+                ملاحظات الفاتورة / شروط التسليم
               </label>
               <input
                 type="text"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="مثال: تسليم المحل، بضاعة أسبوعية، متفق عليها..."
+                placeholder="مثال: تسليم المحل، بضاعة أسبوعية..."
                 className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
               />
             </div>
@@ -665,6 +758,18 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                 <span>الخصم المطبق:</span>
                 <span className="font-mono font-bold">
                   -{formatCurrency(discount, config.currency, config.language)}
+                </span>
+              </div>
+            )}
+
+            {transportFee > 0 && (
+              <div className="flex items-center justify-between text-xs text-indigo-200">
+                <span className="flex items-center gap-1">
+                  <Truck className="w-3.5 h-3.5 text-indigo-300" />
+                  <span>مصاريف النقل (Transport):</span>
+                </span>
+                <span className="font-mono font-bold text-white">
+                  +{formatCurrency(transportFee, config.currency, config.language)}
                 </span>
               </div>
             )}
@@ -712,7 +817,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
               className="w-full sm:w-auto px-6 py-2.5 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all active:scale-95"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>إصدار الفاتورة وزيادة الدين تلقائياً</span>
+              <span>{isEditing ? 'حفظ تعديلات الفاتورة وتحديث الرصيد' : 'إصدار الفاتورة وزيادة الدين تلقائياً'}</span>
             </button>
           </div>
         </form>

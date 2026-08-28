@@ -81,6 +81,7 @@ export interface Invoice {
   subtotal: number;
   discount: number;
   tax: number;
+  transportFee?: number;
   totalAmount: number;
   paidAmount: number;
   remainingAmount: number;
@@ -88,6 +89,8 @@ export interface Invoice {
   paymentMethod?: PaymentMethod;
   debtId?: string;
   notes?: string;
+  previousBalance?: number;
+  newTotalBalance?: number;
   createdAt: string;
   updatedAt: string;
 }
