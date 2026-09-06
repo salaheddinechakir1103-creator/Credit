@@ -24,6 +24,14 @@ import { Customer, Invoice, InvoiceItem, InvoicePaymentType } from '../types/cre
 import { formatCurrency } from '../utils/formatters';
 import { getTranslation } from '../utils/translations';
 
+interface FormInvoiceItem {
+  id: string;
+  name: string;
+  quantity: number | '';
+  unitPrice: number | '';
+  total: number;
+}
+
 interface CreateInvoiceModalProps {
   defaultCustomerId?: string;
   invoiceToEdit?: Invoice | null;
@@ -86,11 +94,11 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   const [notes, setNotes] = useState<string>(invoiceToEdit?.notes || '');
 
   // Invoice Items
-  const [items, setItems] = useState<InvoiceItem[]>(() => {
+  const [items, setItems] = useState<FormInvoiceItem[]>(() => {
     if (invoiceToEdit && invoiceToEdit.items && invoiceToEdit.items.length > 0) {
       return invoiceToEdit.items.map((it) => ({ ...it }));
     }
-    return [{ id: `it-${Date.now()}-1`, name: '', quantity: 1, unitPrice: 0, total: 0 }];
+    return [{ id: `it-${Date.now()}-1`, name: '', quantity: 1, unitPrice: '', total: 0 }];
   });
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
@@ -124,7 +132,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   // Items manipulation
   const handleItemChange = (
     index: number,
-    field: keyof InvoiceItem,
+    field: 'name' | 'quantity' | 'unitPrice',
     value: string | number
   ) => {
     setItems((prev) => {
@@ -134,13 +142,25 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
       if (field === 'name') {
         current.name = String(value);
       } else if (field === 'quantity') {
-        const qty = Math.max(1, Number(value) || 0);
-        current.quantity = qty;
-        current.total = qty * current.unitPrice;
+        if (value === '' || value === undefined || value === null) {
+          current.quantity = '';
+          current.total = 0;
+        } else {
+          const qty = Number(value);
+          current.quantity = isNaN(qty) ? '' : Math.max(0, qty);
+          const price = typeof current.unitPrice === 'number' ? current.unitPrice : Number(current.unitPrice) || 0;
+          current.total = (typeof current.quantity === 'number' ? current.quantity : 0) * price;
+        }
       } else if (field === 'unitPrice') {
-        const pr = Math.max(0, Number(value) || 0);
-        current.unitPrice = pr;
-        current.total = current.quantity * pr;
+        if (value === '' || value === undefined || value === null) {
+          current.unitPrice = '';
+          current.total = 0;
+        } else {
+          const pr = Number(value);
+          current.unitPrice = isNaN(pr) ? '' : Math.max(0, pr);
+          const qty = typeof current.quantity === 'number' ? current.quantity : Number(current.quantity) || 0;
+          current.total = qty * (typeof current.unitPrice === 'number' ? current.unitPrice : 0);
+        }
       }
 
       copy[index] = current;
@@ -151,7 +171,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   const addItemRow = () => {
     setItems((prev) => [
       ...prev,
-      { id: `it-${Date.now()}-${prev.length + 1}`, name: '', quantity: 1, unitPrice: 0, total: 0 },
+      { id: `it-${Date.now()}-${prev.length + 1}`, name: '', quantity: 1, unitPrice: '', total: 0 },
     ]);
   };
 
@@ -188,21 +208,25 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   const isFormValid =
     customerId &&
     invoiceNumber.trim() &&
-    items.some((i) => i.name.trim() && i.quantity > 0 && i.unitPrice > 0);
+    items.some((i) => i.name.trim() && Number(i.quantity) > 0 && Number(i.unitPrice) > 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid) return;
 
-    const validItems = items
+    const validItems: InvoiceItem[] = items
       .filter((i) => i.name.trim())
-      .map((i) => ({
-        id: i.id,
-        name: i.name.trim(),
-        quantity: Number(i.quantity) || 1,
-        unitPrice: Number(i.unitPrice) || 0,
-        total: (Number(i.quantity) || 1) * (Number(i.unitPrice) || 0),
-      }));
+      .map((i) => {
+        const qty = Number(i.quantity) || 1;
+        const price = Number(i.unitPrice) || 0;
+        return {
+          id: i.id,
+          name: i.name.trim(),
+          quantity: qty,
+          unitPrice: price,
+          total: qty * price,
+        };
+      });
 
     if (validItems.length === 0) return;
 
@@ -470,6 +494,23 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                         min="1"
                         step="1"
                         value={item.quantity}
+                        onFocus={(e) => {
+                          e.currentTarget.select();
+                          if (item.quantity === 1) {
+                            handleItemChange(idx, 'quantity', '');
+                          }
+                        }}
+                        onClick={(e) => {
+                          e.currentTarget.select();
+                          if (item.quantity === 1) {
+                            handleItemChange(idx, 'quantity', '');
+                          }
+                        }}
+                        onBlur={() => {
+                          if (item.quantity === '' || Number(item.quantity) <= 0) {
+                            handleItemChange(idx, 'quantity', 1);
+                          }
+                        }}
                         onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
                         className="w-full px-2.5 py-2 text-xs font-black text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
                       />
@@ -501,6 +542,8 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                         min="0"
                         step="0.01"
                         value={item.unitPrice || ''}
+                        onFocus={(e) => e.currentTarget.select()}
+                        onClick={(e) => e.currentTarget.select()}
                         onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
                         placeholder="0.00"
                         required
@@ -543,6 +586,23 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                             min="1"
                             step="1"
                             value={item.quantity}
+                            onFocus={(e) => {
+                              e.currentTarget.select();
+                              if (item.quantity === 1) {
+                                handleItemChange(idx, 'quantity', '');
+                              }
+                            }}
+                            onClick={(e) => {
+                              e.currentTarget.select();
+                              if (item.quantity === 1) {
+                                handleItemChange(idx, 'quantity', '');
+                              }
+                            }}
+                            onBlur={() => {
+                              if (item.quantity === '' || Number(item.quantity) <= 0) {
+                                handleItemChange(idx, 'quantity', 1);
+                              }
+                            }}
                             onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
                             className="w-full px-2.5 py-2 text-xs font-black text-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
                           />
@@ -563,6 +623,8 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                             min="0"
                             step="0.01"
                             value={item.unitPrice || ''}
+                            onFocus={(e) => e.currentTarget.select()}
+                            onClick={(e) => e.currentTarget.select()}
                             onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
                             placeholder="0.00"
                             required
@@ -708,6 +770,17 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                 min="0"
                 step="0.01"
                 value={discountInput}
+                onFocus={(e) => {
+                  e.currentTarget.select();
+                  if (discountInput === '0') setDiscountInput('');
+                }}
+                onClick={(e) => {
+                  e.currentTarget.select();
+                  if (discountInput === '0') setDiscountInput('');
+                }}
+                onBlur={() => {
+                  if (!discountInput) setDiscountInput('0');
+                }}
                 onChange={(e) => setDiscountInput(e.target.value)}
                 placeholder="0.00"
                 className="w-full px-3 py-2 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
@@ -724,6 +797,17 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                 min="0"
                 step="0.01"
                 value={transportFeeInput}
+                onFocus={(e) => {
+                  e.currentTarget.select();
+                  if (transportFeeInput === '0') setTransportFeeInput('');
+                }}
+                onClick={(e) => {
+                  e.currentTarget.select();
+                  if (transportFeeInput === '0') setTransportFeeInput('');
+                }}
+                onBlur={() => {
+                  if (!transportFeeInput) setTransportFeeInput('0');
+                }}
                 onChange={(e) => setTransportFeeInput(e.target.value)}
                 placeholder="0.00"
                 className="w-full px-3 py-2 text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
