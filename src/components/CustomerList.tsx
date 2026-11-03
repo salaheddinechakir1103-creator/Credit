@@ -20,6 +20,7 @@ import { formatCurrency, getCallUrl, getSmsUrl } from '../utils/formatters';
 import { getTranslation } from '../utils/translations';
 import { exportFullReportToExcel } from '../utils/excelExport';
 import { WhatsAppMessageModal } from './WhatsAppMessageModal';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { Customer } from '../types/creditManager';
 
 interface CustomerListProps {
@@ -43,6 +44,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
 
   const [filterType, setFilterType] = useState<'all' | 'debtors' | 'creditors'>('all');
   const [selectedWhatsAppCustomer, setSelectedWhatsAppCustomer] = useState<Customer | null>(null);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
 
   // Filter customers based on search query and filterType
   const filteredCustomers = customers.filter((cust) => {
@@ -54,8 +56,8 @@ export const CustomerList: React.FC<CustomerListProps> = ({
     if (!matchesSearch) return false;
 
     const custDebts = debts.filter((d) => d.customerId === cust.id);
-    const lyaSum = custDebts.filter((d) => d.type === 'lya').reduce((acc, d) => acc + d.remainingAmount, 0);
-    const alyaSum = custDebts.filter((d) => d.type === 'alya').reduce((acc, d) => acc + d.remainingAmount, 0);
+    const lyaSum = custDebts.filter((d) => d.type === 'lya').reduce((acc, d) => acc + (d.remainingAmount ?? d.amount ?? 0), 0);
+    const alyaSum = custDebts.filter((d) => d.type === 'alya').reduce((acc, d) => acc + (d.remainingAmount ?? d.amount ?? 0), 0);
 
     if (filterType === 'debtors') return lyaSum > 0;
     if (filterType === 'creditors') return alyaSum > 0;
@@ -176,10 +178,10 @@ export const CustomerList: React.FC<CustomerListProps> = ({
             const custDebts = debts.filter((d) => d.customerId === cust.id);
             const lyaTotal = custDebts
               .filter((d) => d.type === 'lya')
-              .reduce((acc, d) => acc + d.remainingAmount, 0);
+              .reduce((acc, d) => acc + (d.remainingAmount ?? d.amount ?? 0), 0);
             const alyaTotal = custDebts
               .filter((d) => d.type === 'alya')
-              .reduce((acc, d) => acc + d.remainingAmount, 0);
+              .reduce((acc, d) => acc + (d.remainingAmount ?? d.amount ?? 0), 0);
 
             const whatsappMessage = t.whatsappReminder(
               cust.name,
@@ -228,10 +230,8 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => {
-                          if (confirm(t.confirmDelete)) deleteCustomer(cust.id);
-                        }}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                        onClick={() => setCustomerToDelete(cust)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
                         title={t.deleteCustomer}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -240,7 +240,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                   </div>
 
                   {/* Financial Metrics Badges */}
-                  <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl mb-3">
+                  <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl mb-4">
                     <div>
                       <div className="text-[10px] text-slate-500 dark:text-slate-400">{t.lyaShort}</div>
                       <div className="text-sm font-extrabold text-indigo-600 dark:text-indigo-400">
@@ -254,43 +254,6 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                       </div>
                     </div>
                   </div>
-
-                  {/* Credit Limit Badge & Progress Bar */}
-                  {cust.creditLimit && cust.creditLimit > 0 && (
-                    <div className="mb-3 p-2 bg-slate-50/80 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800 space-y-1">
-                      <div className="flex items-center justify-between text-[10px]">
-                        <span className="text-slate-500">
-                          سقف الكريدي:{' '}
-                          <strong className="font-mono text-slate-700 dark:text-slate-300">
-                            {formatCurrency(cust.creditLimit, config.currency, config.language)}
-                          </strong>
-                        </span>
-                        <span
-                          className={`font-bold ${
-                            lyaTotal > cust.creditLimit
-                              ? 'text-rose-600 dark:text-rose-400'
-                              : 'text-emerald-600 dark:text-emerald-400'
-                          }`}
-                        >
-                          {Math.round((lyaTotal / cust.creditLimit) * 100)}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            lyaTotal > cust.creditLimit
-                              ? 'bg-rose-500'
-                              : lyaTotal / cust.creditLimit > 0.8
-                              ? 'bg-amber-500'
-                              : 'bg-emerald-500'
-                          }`}
-                          style={{
-                            width: `${Math.min(100, Math.round((lyaTotal / cust.creditLimit) * 100))}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
 
                   {/* Contact Buttons bar (Call, WhatsApp, SMS) */}
                   <div className="flex items-center gap-2 mb-4">
@@ -370,6 +333,35 @@ export const CustomerList: React.FC<CustomerListProps> = ({
           onClose={() => setSelectedWhatsAppCustomer(null)}
         />
       )}
+
+      {/* Confirm Delete Customer Modal */}
+      <ConfirmDeleteModal
+        isOpen={!!customerToDelete}
+        title={`تأكيد حذف الزبون`}
+        message={`هل أنت متأكد من حذف الزبون "${customerToDelete?.name}" نهائياً مع كافة ديونه وسجلاته؟`}
+        details={
+          customerToDelete ? (
+            <div className="space-y-1 font-mono">
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-sans">الاسم:</span>
+                <span className="font-bold">{customerToDelete.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-sans">الهاتف:</span>
+                <span>{customerToDelete.phone || 'غير مسجل'}</span>
+              </div>
+            </div>
+          ) : undefined
+        }
+        onConfirm={async () => {
+          if (customerToDelete) {
+            const id = customerToDelete.id;
+            setCustomerToDelete(null);
+            await deleteCustomer(id);
+          }
+        }}
+        onCancel={() => setCustomerToDelete(null)}
+      />
     </div>
   );
 };

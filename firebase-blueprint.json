@@ -89,6 +89,35 @@
       },
       "required": ["id", "invoiceNumber", "customerId", "totalAmount"]
     },
+    "commercialPapers": {
+      "title": "Commercial Papers",
+      "description": "Cheques and Promissory notes (traites) with maturity tracking and bank clearance",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "number": { "type": "string" },
+        "type": { "type": "string" },
+        "direction": { "type": "string" },
+        "amount": { "type": "number" },
+        "dueDate": { "type": "string" },
+        "issueDate": { "type": "string" },
+        "bankName": { "type": "string" },
+        "agency": { "type": "string" },
+        "drawer": { "type": "string" },
+        "customerId": { "type": "string" },
+        "beneficiary": { "type": "string" },
+        "depositDate": { "type": "string" },
+        "cashedDate": { "type": "string" },
+        "status": { "type": "string" },
+        "notes": { "type": "string" },
+        "linkedDebtId": { "type": "string" },
+        "linkedInvoiceId": { "type": "string" },
+        "frontPhotoUrl": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "number", "type", "direction", "amount", "dueDate", "bankName", "drawer", "status"]
+    },
     "settings": {
       "title": "Settings",
       "description": "Shared configuration and user profile",

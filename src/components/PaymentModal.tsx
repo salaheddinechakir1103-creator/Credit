@@ -46,8 +46,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const debtorCustomers = useMemo(() => {
     return customers
       .map((cust) => {
-        const custDebts = debts.filter((d) => d.customerId === cust.id && d.remainingAmount > 0);
-        const totalRemaining = custDebts.reduce((sum, d) => sum + d.remainingAmount, 0);
+        const custDebts = debts.filter((d) => d.customerId === cust.id && (d.remainingAmount > 0 || (d.remainingAmount === undefined && d.amount > 0)));
+        const totalRemaining = custDebts.reduce((sum, d) => sum + (d.remainingAmount ?? d.amount ?? 0), 0);
         const totalOriginal = custDebts.reduce((sum, d) => sum + d.amount, 0);
         return {
           customer: cust,

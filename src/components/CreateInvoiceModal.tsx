@@ -71,10 +71,6 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   const [date, setDate] = useState<string>(
     invoiceToEdit?.date || new Date().toISOString().split('T')[0]
   );
-  const [dueDate, setDueDate] = useState<string>(
-    invoiceToEdit?.dueDate ||
-      new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0]
-  );
   const [paymentType, setPaymentType] = useState<InvoicePaymentType>(
     invoiceToEdit?.paymentType || 'credit'
   );
@@ -111,10 +107,10 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         (d) =>
           d.customerId === customerId &&
           d.type === 'lya' &&
-          d.remainingAmount > 0 &&
+          (d.remainingAmount > 0 || (d.remainingAmount === undefined && d.amount > 0)) &&
           (!isEditing || d.id !== invoiceToEdit?.debtId)
       )
-      .reduce((sum, d) => sum + d.remainingAmount, 0);
+      .reduce((sum, d) => sum + (d.remainingAmount ?? d.amount ?? 0), 0);
   }, [debts, customerId, isEditing, invoiceToEdit]);
 
   // Customer search filtering
@@ -235,7 +231,6 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         invoiceNumber: invoiceNumber.trim(),
         customerId,
         date,
-        dueDate: paymentType === 'cash' ? date : dueDate,
         items: validItems,
         subtotal,
         discount,
@@ -262,7 +257,6 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
       invoiceNumber: invoiceNumber.trim(),
       customerId,
       date,
-      dueDate: paymentType === 'cash' ? date : dueDate,
       items: validItems,
       subtotal,
       discount,
@@ -421,22 +415,6 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                   required
                   className="w-full px-3 py-2.5 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
                 />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  تاريخ الاستحقاق للدين (موعد السداد المتفق عليه)
-                </label>
-                <div className="relative">
-                  <Calendar className="w-4 h-4 absolute inset-y-0 my-auto start-3 text-slate-400" />
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    disabled={paymentType === 'cash'}
-                    className="w-full ps-9 pe-3 py-2.5 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 dark:text-white"
-                  />
-                </div>
               </div>
             </div>
           </div>

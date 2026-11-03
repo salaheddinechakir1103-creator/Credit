@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useCreditManager } from '../context/CreditManagerContext';
 import { getTranslation } from '../utils/translations';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 export const BackupSecurityModal: React.FC = () => {
   const {
@@ -31,6 +32,7 @@ export const BackupSecurityModal: React.FC = () => {
   const [pinSuccessMsg, setPinSuccessMsg] = useState(false);
   const [showCurrentPin, setShowCurrentPin] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
   const handleSavePin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,14 +213,24 @@ export const BackupSecurityModal: React.FC = () => {
           مسح كافة البيانات وإعادة التطبيق للوضع الافتراضي الأولي
         </p>
         <button
-          onClick={() => {
-            if (confirm(t.confirmClearData)) resetAllData();
-          }}
-          className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow transition-all"
+          onClick={() => setIsResetConfirmOpen(true)}
+          className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow transition-all cursor-pointer"
         >
           {t.clearAllData}
         </button>
       </div>
+
+      <ConfirmDeleteModal
+        isOpen={isResetConfirmOpen}
+        title="استعادة ضبط المصنع"
+        message="تحذير: هل أنت متأكد تماماً من رغبتك في مسح كافة البيانات وإعادة التطبيق لحالته الأولية؟ هذا الإجراء لا يمكن التراجع عنه!"
+        confirmLabel="نعم، مسح كافة البيانات"
+        onConfirm={() => {
+          setIsResetConfirmOpen(false);
+          resetAllData();
+        }}
+        onCancel={() => setIsResetConfirmOpen(false)}
+      />
     </div>
   );
 };

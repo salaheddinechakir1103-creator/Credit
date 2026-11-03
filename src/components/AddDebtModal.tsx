@@ -43,13 +43,12 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
   const [date, setDate] = useState<string>(
     debtToEdit?.date || new Date().toISOString().split('T')[0]
   );
-  const [dueDate, setDueDate] = useState<string>(
-    debtToEdit?.dueDate ||
-      new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0]
-  );
   const [category, setCategory] = useState<string>(debtToEdit?.category || '');
   const [notes, setNotes] = useState<string>(debtToEdit?.notes || '');
   const [mergeWithPrevious, setMergeWithPrevious] = useState<boolean>(true);
+  const [remainingAmountInput, setRemainingAmountInput] = useState<string>(
+    debtToEdit ? String(debtToEdit.remainingAmount ?? debtToEdit.amount) : ''
+  );
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
 
@@ -67,9 +66,13 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
 
   // Calculate previous unpaid balance for selected customer of same type
   const customerDebts = debts.filter(
-    (d) => d.customerId === customerId && d.type === type && d.remainingAmount > 0
+    (d) =>
+      d.customerId === customerId &&
+      d.type === type &&
+      (d.remainingAmount > 0 || (d.remainingAmount === undefined && d.amount > 0)) &&
+      (!debtToEdit || d.id !== debtToEdit.id)
   );
-  const previousBalance = customerDebts.reduce((sum, d) => sum + d.remainingAmount, 0);
+  const previousBalance = customerDebts.reduce((sum, d) => sum + (d.remainingAmount ?? d.amount ?? 0), 0);
   const numAmount = parseFloat(amount) || 0;
   const newTotalBalance = previousBalance + numAmount;
 
@@ -80,12 +83,14 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
     if (!customerId || isNaN(numAmount) || numAmount <= 0) return;
 
     if (debtToEdit) {
+      const numRemaining =
+        remainingAmountInput !== '' ? parseFloat(remainingAmountInput) : numAmount;
       updateDebt(debtToEdit.id, {
         customerId,
         type,
         amount: numAmount,
+        remainingAmount: isNaN(numRemaining) ? numAmount : numRemaining,
         date,
-        dueDate,
         category,
         notes,
       });
@@ -96,7 +101,6 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
           type,
           amount: numAmount,
           date,
-          dueDate,
           category: category || (mergeWithPrevious && previousBalance > 0 ? 'بون إجمالي موحد' : 'دين جديد'),
           notes,
         },
@@ -246,54 +250,6 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
             </div>
           </div>
 
-          {/* Credit Limit Alert Banner */}
-          {selectedCustomer?.creditLimit && selectedCustomer.creditLimit > 0 && (
-            <div
-              className={`p-3.5 rounded-2xl border transition-all space-y-1.5 ${
-                newTotalBalance > selectedCustomer.creditLimit
-                  ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800'
-                  : 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50'
-              }`}
-            >
-              <div className="flex items-center justify-between text-xs">
-                <span
-                  className={`font-bold flex items-center gap-1.5 ${
-                    newTotalBalance > selectedCustomer.creditLimit
-                      ? 'text-rose-700 dark:text-rose-300'
-                      : 'text-emerald-800 dark:text-emerald-300'
-                  }`}
-                >
-                  {newTotalBalance > selectedCustomer.creditLimit ? (
-                    <>⚠️ تحذير: تجاوز سقف الكريدي المحدد!</>
-                  ) : (
-                    <>🎯 سقف الكريدي للزبون:</>
-                  )}
-                </span>
-                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-                  {formatCurrency(selectedCustomer.creditLimit, config.currency, config.language)}
-                </span>
-              </div>
-
-              {newTotalBalance > selectedCustomer.creditLimit && (
-                <p className="text-[11px] text-rose-600 dark:text-rose-400">
-                  المجموع بعد هذا الدين سيكون{' '}
-                  <strong className="font-mono">
-                    {formatCurrency(newTotalBalance, config.currency, config.language)}
-                  </strong>
-                  ، متجاوزاً السقف بمقدار{' '}
-                  <strong className="font-mono">
-                    {formatCurrency(
-                      newTotalBalance - selectedCustomer.creditLimit,
-                      config.currency,
-                      config.language
-                    )}
-                  </strong>
-                  .
-                </p>
-              )}
-            </div>
-          )}
-
           {/* Previous Balance Banner & Merge Toggle for the concerned customer */}
           {!debtToEdit && customerId && previousBalance > 0 && (
             <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/60 space-y-2">
@@ -342,7 +298,10 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
                   type="number"
                   step="0.01"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => {
+                    setAmount(e.target.value);
+                    if (!debtToEdit) setRemainingAmountInput(e.target.value);
+                  }}
                   placeholder="0.00"
                   required
                   className="w-full ps-9 pe-3 py-2.5 text-xs sm:text-sm font-extrabold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
@@ -367,33 +326,47 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
             </div>
           </div>
 
-          {/* Dates Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                {t.date}
-              </label>
+          {/* When editing: allow adjusting or restoring the Remaining Amount */}
+          {debtToEdit && (
+            <div className="p-3 bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-amber-900 dark:text-amber-200">
+                  المبلغ المتبقي الحالي (غير المسدد) ({config.currency}):
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setRemainingAmountInput(amount)}
+                  className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                >
+                  استعادة لكامل المبلغ ({amount || '0'} د.م)
+                </button>
+              </div>
               <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-                className="w-full px-3 py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                type="number"
+                step="0.01"
+                value={remainingAmountInput}
+                onChange={(e) => setRemainingAmountInput(e.target.value)}
+                placeholder={amount || '0.00'}
+                className="w-full px-3 py-2 text-xs sm:text-sm font-black font-mono bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 dark:text-white"
               />
+              <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                إذا كان الدين مسدداً أو يظهر بـ 0 بالخطأ، يمكنك تعديل المتبقي هنا ليعود ديناً نشطاً في السجل.
+              </p>
             </div>
+          )}
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                {t.dueDate}
-              </label>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                required
-                className="w-full px-3 py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
-              />
-            </div>
+          {/* Transaction Date */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              تاريخ المعاملة / التسجيل
+            </label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              required
+              className="w-full px-3 py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+            />
           </div>
 
           {/* Notes */}

@@ -17,6 +17,7 @@ import {
   PieChart as PieIcon,
   BarChart3,
   Sparkles,
+  Landmark,
 } from 'lucide-react';
 import {
   BarChart,
@@ -48,17 +49,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onOpenRecordPayment,
   onOpenCreateInvoice,
 }) => {
-  const { customers, debts, transactions, invoices, config, setActiveTab, setSelectedCustomerId } = useCreditManager();
+  const { customers, debts, transactions, invoices, commercialPapers, config, setActiveTab, setSelectedCustomerId } = useCreditManager();
   const t = getTranslation(config.language);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Commercial papers due soon or overdue
+  const dueSoonPapers = (commercialPapers || []).filter((p) => {
+    if (p.status !== 'safe' && p.status !== 'deposited') return false;
+    const due = new Date(p.dueDate);
+    due.setHours(0, 0, 0, 0);
+    const diff = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return diff <= (config.reminderDaysBefore || 7);
+  });
+  const totalDueSoonPapersAmount = dueSoonPapers.reduce((sum, p) => sum + p.amount, 0);
 
   // Calculations
   const totalLya = debts
     .filter((d) => d.type === 'lya')
-    .reduce((acc, d) => acc + d.remainingAmount, 0);
+    .reduce((acc, d) => acc + (d.remainingAmount ?? d.amount ?? 0), 0);
 
   const totalAlya = debts
     .filter((d) => d.type === 'alya')
-    .reduce((acc, d) => acc + d.remainingAmount, 0);
+    .reduce((acc, d) => acc + (d.remainingAmount ?? d.amount ?? 0), 0);
 
   const netBalance = totalLya - totalAlya;
 
@@ -92,6 +106,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-6 pb-12">
+      {/* Cheques & Traites Due Alert Banner ("منين يقرب الوقت يعلمني") */}
+      {dueSoonPapers.length > 0 && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border-2 border-amber-400 dark:border-amber-600/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-in fade-in duration-300">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/30 animate-pulse">
+              <Landmark className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-extrabold text-amber-950 dark:text-amber-200">
+                  تنبيه استحقاق الشيكات والكمبيالات (Les Échéances)
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-slate-950">
+                  {dueSoonPapers.length} أوراق
+                </span>
+              </div>
+              <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-0.5">
+                لديك {dueSoonPapers.length} شيكات / كمبيالات تستحق الصرف قريباً بقيمة إجمالية{' '}
+                <span className="font-mono font-black text-amber-950 dark:text-amber-100">
+                  {formatCurrency(totalDueSoonPapersAmount, config.currency, config.language)}
+                </span>
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab('commercial_papers')}
+            className="px-4 py-2.5 text-xs font-black text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-xl transition-all shadow-md active:scale-95 shrink-0 flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>عرض ومتابعة الشيكات</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Overdue Alert Banner if any overdue debts exist */}
       {overdueDebts.length > 0 && (
         <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-rose-500/10 border border-rose-300 dark:border-rose-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
@@ -272,6 +320,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
           >
             <UserPlus className="w-4 h-4" />
             <span>{t.addCustomer}</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('commercial_papers')}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/40 shadow transition-all active:scale-95"
+          >
+            <Landmark className="w-4 h-4 text-amber-300" />
+            <span>الشيكات والكمبيالات</span>
           </button>
           <button
             onClick={() => onOpenRecordPayment()}

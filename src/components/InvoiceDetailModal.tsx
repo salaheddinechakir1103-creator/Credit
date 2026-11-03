@@ -20,6 +20,7 @@ import {
 import { useCreditManager } from '../context/CreditManagerContext';
 import { Invoice } from '../types/creditManager';
 import { formatCurrency, formatDate, getWhatsAppUrl } from '../utils/formatters';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface InvoiceDetailModalProps {
   invoice: Invoice;
@@ -35,29 +36,32 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   onEdit,
 }) => {
   const { customers, deleteInvoice, config, userProfile, debts } = useCreditManager();
+  const [isDeleting, setIsDeleting] = useState(false);
   const customer = customers.find((c) => c.id === invoice.customerId);
 
   // Total current debt of this customer
   const currentTotalDebt = debts
-    .filter((d) => d.customerId === invoice.customerId && d.type === 'lya' && d.remainingAmount > 0)
-    .reduce((sum, d) => sum + d.remainingAmount, 0);
+    .filter((d) => d.customerId === invoice.customerId && d.type === 'lya' && (d.remainingAmount > 0 || (d.remainingAmount === undefined && d.amount > 0)))
+    .reduce((sum, d) => sum + (d.remainingAmount ?? d.amount ?? 0), 0);
 
   // Calculate previous balance (الرصيد السابق / الكريدي القديم) and new total balance
+  const otherDebtsSum = debts
+    .filter(
+      (d) =>
+        d.customerId === invoice.customerId &&
+        d.type === 'lya' &&
+        d.id !== invoice.debtId &&
+        (d.remainingAmount > 0 || (d.remainingAmount === undefined && d.amount > 0))
+    )
+    .reduce((sum, d) => sum + (d.remainingAmount ?? d.amount ?? 0), 0);
+
   const previousBalance =
-    invoice.previousBalance !== undefined
+    invoice.previousBalance !== undefined && invoice.previousBalance > 0
       ? invoice.previousBalance
-      : debts
-          .filter(
-            (d) =>
-              d.customerId === invoice.customerId &&
-              d.type === 'lya' &&
-              d.id !== invoice.debtId &&
-              d.remainingAmount > 0
-          )
-          .reduce((sum, d) => sum + d.remainingAmount, 0);
+      : otherDebtsSum;
 
   const newTotalDebt =
-    invoice.newTotalBalance !== undefined
+    invoice.newTotalBalance !== undefined && invoice.newTotalBalance > invoice.remainingAmount
       ? invoice.newTotalBalance
       : previousBalance + invoice.remainingAmount;
 
@@ -116,7 +120,6 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
 
 📄 *فاتورة مشتريات رقم #${invoice.invoiceNumber}*
 📅 التاريخ: ${formatDate(invoice.date, config.language)}
-${invoice.dueDate ? `⏰ موعد السداد المتفق عليه: ${formatDate(invoice.dueDate, config.language)}\n` : ''}
 🛒 *تفاصيل المشتريات:*
 ${itemsSummary}
 
@@ -148,16 +151,8 @@ ${userProfile.phone ? `📞 للتواصل والاستفسار: ${userProfile.p
     window.open(url, '_blank');
   };
 
-  const handleDeleteInvoice = async () => {
-    if (
-      window.confirm(
-        'هل أنت متأكد من حذف هذه الفاتورة؟ سيتم أيضاً خصم قيمة الدين المرتبط بها من حساب الزبون.'
-      )
-    ) {
-      await deleteInvoice(invoice.id, true);
-      if (onDelete) onDelete();
-      onClose();
-    }
+  const handleDeleteInvoice = () => {
+    setIsDeleting(true);
   };
 
   return (
@@ -291,15 +286,6 @@ ${userProfile.phone ? `📞 للتواصل والاستفسار: ${userProfile.p
               </span>
               <span className="font-bold text-slate-900 dark:text-white">
                 {formatDate(invoice.date, config.language)}
-              </span>
-            </div>
-
-            <div>
-              <span className="text-slate-500 dark:text-slate-400 block text-[11px]">
-                تاريخ الاستحقاق:
-              </span>
-              <span className="font-bold text-slate-900 dark:text-white">
-                {invoice.dueDate ? formatDate(invoice.dueDate, config.language) : 'فوري'}
               </span>
             </div>
 
@@ -460,6 +446,34 @@ ${userProfile.phone ? `📞 للتواصل والاستفسار: ${userProfile.p
           </button>
         </div>
       </div>
+
+      {/* Confirm Delete Modal */}
+      <ConfirmDeleteModal
+        isOpen={isDeleting}
+        title="تأكيد حذف الفاتورة"
+        message="هل أنت متأكد من حذف هذه الفاتورة؟ سيتم أيضاً خصم قيمة الدين المرتبط بها من حساب الزبون."
+        details={
+          <div className="space-y-1 font-mono">
+            <div className="flex justify-between">
+              <span className="text-slate-400 font-sans">رقم الفاتورة:</span>
+              <span className="font-bold">{invoice.invoiceNumber}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400 font-sans">المبلغ:</span>
+              <span className="font-bold text-rose-600">
+                {formatCurrency(invoice.totalAmount, config.currency, config.language)}
+              </span>
+            </div>
+          </div>
+        }
+        onConfirm={async () => {
+          setIsDeleting(false);
+          await deleteInvoice(invoice.id, true);
+          if (onDelete) onDelete();
+          onClose();
+        }}
+        onCancel={() => setIsDeleting(false)}
+      />
     </div>
   );
 };

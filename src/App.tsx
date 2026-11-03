@@ -18,6 +18,7 @@ import { ProfileSettings } from './components/ProfileSettings';
 import { NotificationsModal } from './components/NotificationsModal';
 import { LockScreen } from './components/LockScreen';
 import { AIAssistantView } from './components/AIAssistantView';
+import { CommercialPapersView } from './components/CommercialPapersView';
 import { Customer, Debt } from './types/creditManager';
 
 const MainWorkspace: React.FC = () => {
@@ -127,6 +128,8 @@ const MainWorkspace: React.FC = () => {
               onOpenCreateInvoice={(cId) => handleOpenCreateInvoice(cId)}
             />
           )}
+
+          {activeTab === 'commercial_papers' && <CommercialPapersView />}
 
           {activeTab === 'invoices' && (
             <InvoiceList onOpenCreateInvoice={handleOpenCreateInvoice} />

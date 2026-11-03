@@ -26,9 +26,6 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ customerToEd
   const [address, setAddress] = useState<string>(customerToEdit?.address || '');
   const [photoUrl, setPhotoUrl] = useState<string>(customerToEdit?.photoUrl || AVATAR_SAMPLES[0]);
   const [notes, setNotes] = useState<string>(customerToEdit?.notes || '');
-  const [creditLimit, setCreditLimit] = useState<string>(
-    customerToEdit?.creditLimit ? customerToEdit.creditLimit.toString() : ''
-  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +38,6 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ customerToEd
         address,
         photoUrl,
         notes,
-        creditLimit: creditLimit ? parseFloat(creditLimit) : undefined,
       });
     } else {
       addCustomer({
@@ -50,7 +46,6 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ customerToEd
         address,
         photoUrl,
         notes,
-        creditLimit: creditLimit ? parseFloat(creditLimit) : undefined,
       });
     }
 
@@ -151,23 +146,6 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ customerToEd
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="المدينة، الحي أو العنوان..."
-                className="w-full ps-9 pe-3 py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
-              />
-            </div>
-          </div>
-
-          {/* Credit Limit */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              {t.creditLimit} ({config.currency})
-            </label>
-            <div className="relative">
-              <CreditCard className="w-4 h-4 absolute inset-y-0 my-auto start-3 text-slate-400" />
-              <input
-                type="number"
-                value={creditLimit}
-                onChange={(e) => setCreditLimit(e.target.value)}
-                placeholder="مثال: 10000"
                 className="w-full ps-9 pe-3 py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
               />
             </div>

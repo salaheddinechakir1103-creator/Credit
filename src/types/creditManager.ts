@@ -28,7 +28,6 @@ export interface Customer {
   address?: string;
   photoUrl?: string;
   notes?: string;
-  creditLimit?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -40,7 +39,6 @@ export interface Debt {
   amount: number;
   remainingAmount: number;
   date: string;
-  dueDate: string;
   status: DebtStatus;
   notes?: string;
   category?: string;
@@ -76,7 +74,6 @@ export interface Invoice {
   invoiceNumber: string;
   customerId: string;
   date: string;
-  dueDate?: string;
   items: InvoiceItem[];
   subtotal: number;
   discount: number;
@@ -95,15 +92,49 @@ export interface Invoice {
   updatedAt: string;
 }
 
+export type CommercialPaperType = 'cheque' | 'traite'; // شيك | كمبيالة (لاطريت)
+export type CommercialPaperDirection = 'in' | 'out'; // مقبوض (وارد من زبون) | صادر (مدفوع لمورد)
+export type CommercialPaperStatus =
+  | 'safe' // في الحفظ / في المحفظة (En portefeuille)
+  | 'deposited' // مودع بالبنك للتحصيل (Déposé / Remis à l'encaissement)
+  | 'cashed' // تم الصرف بنجاح (Encaissé / Payé)
+  | 'rejected' // مرفوض / بدون رصيد (Rejeté / Impayé)
+  | 'cancelled'; // ملغى أو مسترجع (Annulé / Restitué)
+
+export interface CommercialPaper {
+  id: string;
+  number: string; // رقم الشيك أو الكمبيالة
+  type: CommercialPaperType; // 'cheque' أو 'traite'
+  direction: CommercialPaperDirection; // 'in' (وارد) أو 'out' (صادر)
+  amount: number;
+  dueDate: string; // تاريخ الاستحقاق / الصرف (YYYY-MM-DD)
+  issueDate?: string; // تاريخ التحرير
+  bankName: string; // اسم البنك (مثل التجاري وفا بنك، البنك الشعبي، CIH...)
+  agency?: string; // الوكالة البنكية
+  drawer: string; // الساحب (صاحب الشيك أو الموقع)
+  customerId?: string; // معرف الزبون المرتبط إن وجد
+  beneficiary?: string; // المستفيد
+  depositDate?: string; // تاريخ الإيداع بالبنك
+  cashedDate?: string; // تاريخ الصرف الفعلي
+  status: CommercialPaperStatus;
+  notes?: string;
+  linkedDebtId?: string; // ربط تلقائي بالدين
+  linkedInvoiceId?: string; // ربط بالفاتورة
+  frontPhotoUrl?: string; // صورة الشيك أو لاطريت
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface NotificationItem {
   id: string;
   debtId?: string;
   customerId?: string;
+  paperId?: string;
   title: string;
   message: string;
   date: string;
   read: boolean;
-  type: 'due_soon' | 'overdue' | 'system' | 'payment';
+  type: 'due_soon' | 'overdue' | 'system' | 'payment' | 'cheque_due_soon' | 'cheque_overdue';
 }
 
 export interface AppConfig {

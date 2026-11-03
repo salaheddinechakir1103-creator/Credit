@@ -26,6 +26,7 @@ import { formatCurrency, formatDate, getWhatsAppUrl } from '../utils/formatters'
 import { getTranslation } from '../utils/translations';
 import { InvoiceDetailModal } from './InvoiceDetailModal';
 import { CreateInvoiceModal } from './CreateInvoiceModal';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface InvoiceListProps {
   onOpenCreateInvoice: (customerId?: string) => void;
@@ -39,6 +40,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onOpenCreateInvoice })
   const [filterType, setFilterType] = useState<string>('all'); // all, credit, partial, cash
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [invoiceToEdit, setInvoiceToEdit] = useState<Invoice | null>(null);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
 
   // Filtered invoices
   const filteredInvoices = useMemo(() => {
@@ -177,14 +179,8 @@ ${
     window.open(url, '_blank');
   };
 
-  const handleDelete = async (invId: string) => {
-    if (
-      window.confirm(
-        'هل تريد حذف هذه الفاتورة؟ سيتم أيضاً إزالة الدين المرتبط بها من حساب الزبون تلقائياً.'
-      )
-    ) {
-      await deleteInvoice(invId, true);
-    }
+  const handleDelete = (inv: Invoice) => {
+    setInvoiceToDelete(inv);
   };
 
   return (
@@ -430,8 +426,8 @@ ${
                     )}
 
                     <button
-                      onClick={() => handleDelete(inv.id)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
+                      onClick={() => handleDelete(inv)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors cursor-pointer"
                       title="حذف الفاتورة"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -573,8 +569,8 @@ ${
                             )}
 
                             <button
-                              onClick={() => handleDelete(inv.id)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
+                              onClick={() => handleDelete(inv)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
                               title="حذف الفاتورة"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -610,6 +606,37 @@ ${
           onClose={() => setInvoiceToEdit(null)}
         />
       )}
+
+      {/* Confirm Delete Invoice Modal */}
+      <ConfirmDeleteModal
+        isOpen={!!invoiceToDelete}
+        title="تأكيد حذف الفاتورة"
+        message="هل أنت متأكد من حذف هذه الفاتورة؟ سيتم أيضاً إزالة الدين المرتبط بها من حساب الزبون تلقائياً."
+        details={
+          invoiceToDelete ? (
+            <div className="space-y-1 font-mono">
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-sans">رقم الفاتورة:</span>
+                <span className="font-bold">{invoiceToDelete.invoiceNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-sans">المبلغ الإجمالي:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">
+                  {formatCurrency(invoiceToDelete.totalAmount, config.currency, config.language)}
+                </span>
+              </div>
+            </div>
+          ) : undefined
+        }
+        onConfirm={async () => {
+          if (invoiceToDelete) {
+            const id = invoiceToDelete.id;
+            setInvoiceToDelete(null);
+            await deleteInvoice(id, true);
+          }
+        }}
+        onCancel={() => setInvoiceToDelete(null)}
+      />
     </div>
   );
 };

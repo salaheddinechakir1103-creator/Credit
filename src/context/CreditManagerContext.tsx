@@ -20,6 +20,10 @@ import {
   NotificationItem,
   AppConfig,
   UserProfile,
+  CommercialPaper,
+  CommercialPaperStatus,
+  CommercialPaperType,
+  CommercialPaperDirection,
 } from '../types/creditManager';
 
 function cleanForFirestore<T extends Record<string, any>>(obj: T): Record<string, any> {
@@ -38,6 +42,7 @@ interface CreditManagerContextType {
   transactions: Transaction[];
   invoices: Invoice[];
   notifications: NotificationItem[];
+  commercialPapers: CommercialPaper[];
   config: AppConfig;
   userProfile: UserProfile;
   
@@ -57,6 +62,7 @@ interface CreditManagerContextType {
   // Debt CRUD
   addDebt: (debt: Omit<Debt, 'id' | 'remainingAmount' | 'status' | 'createdAt' | 'updatedAt'>, mergeWithExisting?: boolean) => void;
   updateDebt: (id: string, updates: Partial<Debt>) => void;
+  reactivateDebt: (id: string, newRemaining?: number) => Promise<void>;
   deleteDebt: (id: string) => void;
   consolidateCustomerDebts: (customerId: string) => Promise<void>;
 
@@ -64,6 +70,16 @@ interface CreditManagerContextType {
   createInvoice: (invoiceData: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt' | 'debtId'> & { debtId?: string }) => Promise<Invoice>;
   updateInvoice: (id: string, updates: Partial<Invoice>) => Promise<void>;
   deleteInvoice: (id: string, deleteLinkedDebt?: boolean) => Promise<void>;
+
+  // Commercial Papers (Chèques & Traites)
+  addCommercialPaper: (data: Omit<CommercialPaper, 'id' | 'createdAt' | 'updatedAt'>) => Promise<CommercialPaper>;
+  updateCommercialPaper: (id: string, updates: Partial<CommercialPaper>) => Promise<void>;
+  deleteCommercialPaper: (id: string) => Promise<void>;
+  changePaperStatus: (
+    id: string,
+    status: CommercialPaperStatus,
+    extra?: { depositDate?: string; cashedDate?: string; notes?: string; autoRecordPayment?: boolean }
+  ) => Promise<void>;
 
   // Transactions & Payments
   recordPayment: (payment: {
@@ -103,7 +119,6 @@ const initialCustomers: Customer[] = [
     phone: '0661234567',
     address: 'شارع محمد الخامس، الدار البيضاء',
     notes: 'زبون دائم - متجر البقالة المركزي',
-    creditLimit: 15000,
     photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=250',
     createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
     updatedAt: new Date().toISOString(),
@@ -114,7 +129,6 @@ const initialCustomers: Customer[] = [
     phone: '0522987654',
     address: 'المنطقة الصناعية، عين السبع',
     notes: 'مورد المواد الغذائية',
-    creditLimit: 50000,
     photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=250',
     createdAt: new Date(Date.now() - 45 * 86400000).toISOString(),
     updatedAt: new Date().toISOString(),
@@ -125,7 +139,6 @@ const initialCustomers: Customer[] = [
     phone: '0665112233',
     address: 'حي أگدال، الرباط',
     notes: 'طلبيات الملابس الجاهزة',
-    creditLimit: 8000,
     photoUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=250',
     createdAt: new Date(Date.now() - 15 * 86400000).toISOString(),
     updatedAt: new Date().toISOString(),
@@ -136,7 +149,6 @@ const initialCustomers: Customer[] = [
     phone: '0671445566',
     address: 'طريق فاس، طنجة',
     notes: 'ورشة النجارة والتأثيث',
-    creditLimit: 10000,
     photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=250',
     createdAt: new Date(Date.now() - 10 * 86400000).toISOString(),
     updatedAt: new Date().toISOString(),
@@ -151,7 +163,6 @@ const initialDebts: Debt[] = [
     amount: 3500,
     remainingAmount: 1500,
     date: new Date(Date.now() - 20 * 86400000).toISOString().split('T')[0],
-    dueDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
     status: 'partial',
     category: 'بضائع شحنة الزيت والسكر',
     notes: 'تم أداء 2000 د.م نقداً يوم 15 في الشهر',
@@ -165,7 +176,6 @@ const initialDebts: Debt[] = [
     amount: 12000,
     remainingAmount: 12000,
     date: new Date(Date.now() - 10 * 86400000).toISOString().split('T')[0],
-    dueDate: new Date(Date.now() + 10 * 86400000).toISOString().split('T')[0],
     status: 'unpaid',
     category: 'فاتورة توريد المعلبات رقم #892',
     notes: 'استحقاق بشيك بنكي',
@@ -179,10 +189,9 @@ const initialDebts: Debt[] = [
     amount: 2400,
     remainingAmount: 2400,
     date: new Date(Date.now() - 25 * 86400000).toISOString().split('T')[0],
-    dueDate: new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0], // overdue!
-    status: 'overdue',
+    status: 'unpaid',
     category: 'أزياء تقليدية للمحل',
-    notes: 'تأخرت بالأداء، تواصلت معها عبر واتساب',
+    notes: 'تواصلت معها عبر واتساب',
     createdAt: new Date(Date.now() - 25 * 86400000).toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -190,13 +199,12 @@ const initialDebts: Debt[] = [
     id: 'debt-4',
     customerId: 'cust-4',
     type: 'lya',
-    amount: 1800,
-    remainingAmount: 0,
+    amount: 3800,
+    remainingAmount: 2000,
     date: new Date(Date.now() - 40 * 86400000).toISOString().split('T')[0],
-    dueDate: new Date(Date.now() - 15 * 86400000).toISOString().split('T')[0],
-    status: 'paid',
+    status: 'partial',
     category: 'خشب وزوايا ألومنيوم',
-    notes: 'سدد بالكامل كاش',
+    notes: 'بون قديم - تم أداء 1,800 د.م ومتبقي 2,000 د.م',
     createdAt: new Date(Date.now() - 40 * 86400000).toISOString(),
     updatedAt: new Date().toISOString(),
   }
@@ -233,7 +241,6 @@ const initialInvoices: Invoice[] = [
     invoiceNumber: 'FAC-2026-001',
     customerId: 'cust-1',
     date: new Date(Date.now() - 20 * 86400000).toISOString().split('T')[0],
-    dueDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
     items: [
       { id: 'item-1', name: 'زيت المائدة 5 لتر (كرتون)', quantity: 5, unitPrice: 320, total: 1600 },
       { id: 'item-2', name: 'سكر قوالب 25 كلغ (أكياس)', quantity: 3, unitPrice: 240, total: 720 },
@@ -256,7 +263,6 @@ const initialInvoices: Invoice[] = [
     invoiceNumber: 'FAC-2026-002',
     customerId: 'cust-3',
     date: new Date(Date.now() - 25 * 86400000).toISOString().split('T')[0],
-    dueDate: new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0],
     items: [
       { id: 'item-4', name: 'قفطان مغربي مطرز أصيل', quantity: 1, unitPrice: 1500, total: 1500 },
       { id: 'item-5', name: 'جلابة نسائية صوفية ممتازة', quantity: 1, unitPrice: 900, total: 900 },
@@ -280,21 +286,116 @@ const initialNotifications: NotificationItem[] = [
     id: 'notif-1',
     debtId: 'debt-3',
     customerId: 'cust-3',
-    title: 'تأخر عن موعد السداد',
-    message: 'الدين الخاص بـ فاطمة الزهراء الإدريسي بقيمة 2,400 د.م تجاوز موعد الاستحقاق',
+    title: 'بون مشتريات جديد',
+    message: 'تم تسجيل بون جديد لفاطمة الزهراء الإدريسي بقيمة 2,400 د.م',
     date: new Date().toISOString(),
     read: false,
-    type: 'overdue',
+    type: 'system',
   },
   {
     id: 'notif-2',
     debtId: 'debt-1',
     customerId: 'cust-1',
-    title: 'اقتراب موعد السداد',
-    message: 'مستحق كمال الوردي المتبقي (1,500 د.م) يستحق خلال 5 أيام',
+    title: 'دفعة سداد نقدية',
+    message: 'تم تسجيل أداء 2,000 د.م من طرف كمال الوردي والمتبقي 1,500 د.م',
     date: new Date(Date.now() - 86400000).toISOString(),
     read: true,
-    type: 'due_soon',
+    type: 'system',
+  }
+];
+
+const initialCommercialPapers: CommercialPaper[] = [
+  {
+    id: 'paper-1',
+    number: 'CHQ-8492011',
+    type: 'cheque',
+    direction: 'in',
+    amount: 7500,
+    dueDate: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0], // 2 days ahead
+    issueDate: new Date(Date.now() - 10 * 86400000).toISOString().split('T')[0],
+    bankName: 'التجاري وفا بنك (Attijariwafa Bank)',
+    agency: 'وكالة أنفا - الدار البيضاء',
+    drawer: 'كمال الوردي',
+    customerId: 'cust-1',
+    beneficiary: 'متجر الأمانة للتجارة والخدمات',
+    status: 'safe',
+    notes: 'شيك ضمان دفعة طلبيات المواد الغذائية',
+    createdAt: new Date(Date.now() - 10 * 86400000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'paper-2',
+    number: 'TR-2026-0043',
+    type: 'traite',
+    direction: 'in',
+    amount: 14200,
+    dueDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0], // 5 days ahead
+    issueDate: new Date(Date.now() - 25 * 86400000).toISOString().split('T')[0],
+    bankName: 'البنك الشعبي (Banque Populaire)',
+    agency: 'وكالة حسان - الرباط',
+    drawer: 'شركة الأمل للتوزيع',
+    customerId: 'cust-2',
+    beneficiary: 'متجر الأمانة للتجارة والخدمات',
+    depositDate: new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0],
+    status: 'deposited',
+    notes: 'كمبيالة تجارية رقم 43 لأجل 60 يوماً مودعة للتحصيل',
+    createdAt: new Date(Date.now() - 25 * 86400000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'paper-3',
+    number: 'CHQ-100294',
+    type: 'cheque',
+    direction: 'out',
+    amount: 5000,
+    dueDate: new Date(Date.now() + 1 * 86400000).toISOString().split('T')[0], // Tomorrow!
+    issueDate: new Date(Date.now() - 5 * 86400000).toISOString().split('T')[0],
+    bankName: 'القرض العقاري والسياحي (CIH Bank)',
+    agency: 'وكالة المعاريف',
+    drawer: 'متجر الأمانة للتجارة والخدمات',
+    beneficiary: 'مؤسسة الأندلس للتجهيزات',
+    status: 'safe',
+    notes: 'شيك صادر لأداء مستحقات توريد بضاعة',
+    createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'paper-4',
+    number: 'TR-2026-0019',
+    type: 'traite',
+    direction: 'in',
+    amount: 3200,
+    dueDate: new Date(Date.now() - 3 * 86400000).toISOString().split('T')[0], // 3 days ago overdue!
+    issueDate: new Date(Date.now() - 33 * 86400000).toISOString().split('T')[0],
+    bankName: 'بنك أفريقيا (Bank of Africa)',
+    agency: 'وكالة أكدال - الرباط',
+    drawer: 'فاطمة الزهراء الإدريسي',
+    customerId: 'cust-3',
+    beneficiary: 'متجر الأمانة للتجارة والخدمات',
+    status: 'safe',
+    notes: 'كمبيالة مؤجلة استوفت الأجل يلزم الاتصال بالزبونة أو الإيداع',
+    createdAt: new Date(Date.now() - 33 * 86400000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'paper-5',
+    number: 'CHQ-663812',
+    type: 'cheque',
+    direction: 'in',
+    amount: 6000,
+    dueDate: new Date(Date.now() - 15 * 86400000).toISOString().split('T')[0],
+    issueDate: new Date(Date.now() - 25 * 86400000).toISOString().split('T')[0],
+    bankName: 'الشركة العامة (SGMB)',
+    agency: 'وكالة طنجة المدينة',
+    drawer: 'عبد الرحيم البقالي',
+    customerId: 'cust-4',
+    beneficiary: 'متجر الأمانة للتجارة والخدمات',
+    depositDate: new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0],
+    cashedDate: new Date(Date.now() - 12 * 86400000).toISOString().split('T')[0],
+    status: 'cashed',
+    notes: 'تم الصرف بنجاح وقيد المبلغ في الحساب البنكي',
+    createdAt: new Date(Date.now() - 25 * 86400000).toISOString(),
+    updatedAt: new Date().toISOString(),
   }
 ];
 
@@ -318,11 +419,47 @@ const defaultProfile: UserProfile = {
   avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=250',
 };
 
+// Helper to clean and validate customer records (removes creditLimit from all customers)
+export function normalizeCustomer(c: any): Customer {
+  const { creditLimit, ...rest } = c;
+  return rest as Customer;
+}
+
+// Helper to heal and validate debt records (removes forced due dates from standard debts)
+export function normalizeDebt(d: any): Debt {
+  const amount = Number(d.amount) || 0;
+  let remaining = d.remainingAmount !== undefined && d.remainingAmount !== null ? Number(d.remainingAmount) : amount;
+  if (isNaN(remaining)) remaining = amount;
+
+  // If debt-4 specifically was initialized as 0 in older storage/snapshots, heal it to active debt
+  if (d.id === 'debt-4' && remaining <= 0) {
+    remaining = 2000;
+    d.amount = 3800;
+    d.status = 'partial';
+  } else if (d.status !== 'paid' && remaining <= 0 && amount > 0) {
+    remaining = amount;
+  }
+
+  // Remove dueDate from customer debt so customers are not burdened with due dates
+  const { dueDate, ...restOfDebt } = d;
+
+  const computedStatus: DebtStatus =
+    remaining <= 0 ? 'paid' : remaining < amount ? 'partial' : 'unpaid';
+
+  return {
+    ...restOfDebt,
+    amount,
+    remainingAmount: remaining,
+    status: d.status && remaining <= 0 ? 'paid' : computedStatus,
+  };
+}
+
 export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [customers, setCustomers] = useState<Customer[]>(() => {
     try {
       const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_customers`);
-      return saved && saved !== 'undefined' ? JSON.parse(saved) : initialCustomers;
+      const parsed = saved && saved !== 'undefined' ? JSON.parse(saved) : initialCustomers;
+      return Array.isArray(parsed) ? parsed.map(normalizeCustomer) : initialCustomers;
     } catch {
       return initialCustomers;
     }
@@ -331,7 +468,8 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
   const [debts, setDebts] = useState<Debt[]>(() => {
     try {
       const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_debts`);
-      return saved && saved !== 'undefined' ? JSON.parse(saved) : initialDebts;
+      const parsed = saved && saved !== 'undefined' ? JSON.parse(saved) : initialDebts;
+      return Array.isArray(parsed) ? parsed.map(normalizeDebt) : initialDebts;
     } catch {
       return initialDebts;
     }
@@ -361,6 +499,15 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       return saved && saved !== 'undefined' ? JSON.parse(saved) : initialNotifications;
     } catch {
       return initialNotifications;
+    }
+  });
+
+  const [commercialPapers, setCommercialPapers] = useState<CommercialPaper[]>(() => {
+    try {
+      const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_commercialPapers`);
+      return saved && saved !== 'undefined' ? JSON.parse(saved) : initialCommercialPapers;
+    } catch {
+      return initialCommercialPapers;
     }
   });
 
@@ -414,7 +561,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
           const custs: Customer[] = [];
           snapshot.forEach((docSnap) => {
             const d = docSnap.data() as Customer;
-            if (d && d.id) custs.push(d);
+            if (d && d.id) custs.push(normalizeCustomer(d));
           });
           custs.sort(
             (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
@@ -445,7 +592,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
           const dlist: Debt[] = [];
           snapshot.forEach((docSnap) => {
             const d = docSnap.data() as Debt;
-            if (d && d.id) dlist.push(d);
+            if (d && d.id) dlist.push(normalizeDebt(d));
           });
           dlist.sort(
             (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
@@ -593,12 +740,44 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       (err) => console.error('Firestore profile error:', err)
     );
 
+    // 6. Sync Commercial Papers (Chèques & Traites)
+    const unsubPapers = onSnapshot(
+      collection(db, 'commercialPapers'),
+      (snapshot) => {
+        if (snapshot.empty) {
+          const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_commercialPapers`);
+          const localPapers: CommercialPaper[] =
+            saved && saved !== 'undefined' ? JSON.parse(saved) : initialCommercialPapers;
+          if (localPapers && localPapers.length > 0) {
+            localPapers.forEach((p) => {
+              setDoc(doc(db, 'commercialPapers', p.id), cleanForFirestore(p)).catch(console.error);
+            });
+            setCommercialPapers(localPapers);
+          } else {
+            setCommercialPapers([]);
+          }
+        } else {
+          const plist: CommercialPaper[] = [];
+          snapshot.forEach((docSnap) => {
+            const p = docSnap.data() as CommercialPaper;
+            if (p && p.id) plist.push(p);
+          });
+          plist.sort(
+            (a, b) => new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime()
+          );
+          setCommercialPapers(plist);
+        }
+      },
+      (err) => console.error('Firestore commercialPapers error:', err)
+    );
+
     return () => {
       unsubCust();
       unsubDebts();
       unsubTx();
       unsubInvoices();
       unsubNotif();
+      unsubPapers();
       unsubConfig();
       unsubProfile();
     };
@@ -647,6 +826,65 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     try { localStorage.setItem(`${LOCAL_STORAGE_KEY}_profile`, JSON.stringify(userProfile)); } catch (e) { console.error(e); }
   }, [userProfile]);
+
+  useEffect(() => {
+    try { localStorage.setItem(`${LOCAL_STORAGE_KEY}_commercialPapers`, JSON.stringify(commercialPapers)); } catch (e) { console.error(e); }
+  }, [commercialPapers]);
+
+  // Auto-check for Commercial Papers Approaching Due Date or Overdue ("منين يقرب الوقت يعلمني")
+  useEffect(() => {
+    if (!commercialPapers || commercialPapers.length === 0) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const newAlerts: NotificationItem[] = [];
+
+    commercialPapers.forEach((p) => {
+      // Only active papers in safe (en portefeuille) or deposited (en cours d'encaissement)
+      if (p.status !== 'safe' && p.status !== 'deposited') return;
+
+      const due = new Date(p.dueDate);
+      due.setHours(0, 0, 0, 0);
+      const diffTime = due.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      const typeStr = p.type === 'cheque' ? 'شيك' : 'كمبيالة (طريت)';
+      const person = p.direction === 'in' ? p.drawer : (p.beneficiary || p.drawer);
+
+      if (diffDays < 0) {
+        newAlerts.push({
+          id: `notif-cp-overdue-${p.id}`,
+          paperId: p.id,
+          customerId: p.customerId,
+          title: `⚠️ تأخر عن موعد صرف ${typeStr}`,
+          message: `${typeStr} رقم ${p.number} الخاص بـ (${person}) بقيمة ${p.amount.toLocaleString()} د.م تجاوز موعد الاستحقاق (${p.dueDate}) بـ ${Math.abs(diffDays)} أيام!`,
+          date: new Date().toISOString(),
+          read: false,
+          type: 'cheque_overdue',
+        });
+      } else if (diffDays <= (config.reminderDaysBefore || 7)) {
+        newAlerts.push({
+          id: `notif-cp-soon-${p.id}`,
+          paperId: p.id,
+          customerId: p.customerId,
+          title: diffDays === 0 ? `🚨 ${typeStr} يستحق الصرف اليوم!` : `🔔 اقتراب موعد صرف ${typeStr}`,
+          message: `${typeStr} رقم ${p.number} الخاص بـ (${person}) بمبلغ ${p.amount.toLocaleString()} د.م ${diffDays === 0 ? 'يستحق الصرف اليوم!' : `يستحق خلال ${diffDays} أيام (${p.dueDate})`}`,
+          date: new Date().toISOString(),
+          read: false,
+          type: 'cheque_due_soon',
+        });
+      }
+    });
+
+    if (newAlerts.length > 0) {
+      setNotifications((prev) => {
+        const existingIds = new Set(prev.map((n) => n.id));
+        const toAdd = newAlerts.filter((a) => !existingIds.has(a.id));
+        if (toAdd.length === 0) return prev;
+        return [...toAdd, ...prev];
+      });
+    }
+  }, [commercialPapers, config.reminderDaysBefore]);
 
   // Customer Actions
   const addCustomer = async (data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -698,9 +936,6 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     data: Omit<Debt, 'id' | 'remainingAmount' | 'status' | 'createdAt' | 'updatedAt'>,
     mergeWithExisting: boolean = false
   ) => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const isOverdue = data.dueDate < todayStr;
-
     // Check if customer already has an unpaid debt of the same type that we should merge with
     if (mergeWithExisting) {
       const existingDebt = debts.find(
@@ -722,9 +957,8 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
           remainingAmount: mergedRemaining,
           category: updatedCategory,
           notes: updatedNotes,
-          dueDate: data.dueDate > existingDebt.dueDate ? data.dueDate : existingDebt.dueDate,
           updatedAt: new Date().toISOString(),
-          status: isOverdue ? 'overdue' : 'unpaid',
+          status: 'unpaid',
         };
 
         setDebts((prev) => prev.map((d) => (d.id === existingDebt.id ? updatedDebt : d)));
@@ -742,7 +976,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       ...data,
       id: `debt-${Date.now()}`,
       remainingAmount: data.amount,
-      status: isOverdue ? 'overdue' : 'unpaid',
+      status: 'unpaid',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -759,15 +993,30 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     setDebts((prev) =>
       prev.map((d) => {
         if (d.id !== id) return d;
-        const updated = { ...d, ...updates, updatedAt: new Date().toISOString() };
+        const newAmount = updates.amount !== undefined ? Number(updates.amount) : d.amount;
+        let newRemaining =
+          updates.remainingAmount !== undefined ? Number(updates.remainingAmount) : d.remainingAmount;
+
+        // If remaining is undefined or NaN, fallback to newAmount
+        if (newRemaining === undefined || newRemaining === null || isNaN(newRemaining)) {
+          newRemaining = newAmount;
+        }
+
+        const updated: Debt = {
+          ...d,
+          ...updates,
+          amount: newAmount,
+          remainingAmount: newRemaining,
+          updatedAt: new Date().toISOString(),
+        };
+
         if (updated.remainingAmount <= 0) {
           updated.status = 'paid';
           updated.remainingAmount = 0;
         } else if (updated.remainingAmount < updated.amount) {
           updated.status = 'partial';
         } else {
-          const todayStr = new Date().toISOString().split('T')[0];
-          updated.status = updated.dueDate < todayStr ? 'overdue' : 'unpaid';
+          updated.status = 'unpaid';
         }
         updatedObj = updated;
         return updated;
@@ -778,6 +1027,35 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         await setDoc(doc(db, 'debts', id), cleanForFirestore(updatedObj), { merge: true });
       } catch (e) {
         console.error('Update debt firestore error:', e);
+      }
+    }
+  };
+
+  const reactivateDebt = async (id: string, newRemaining?: number) => {
+    let updatedObj: Debt | null = null;
+    setDebts((prev) =>
+      prev.map((d) => {
+        if (d.id !== id) return d;
+        const targetRemaining =
+          newRemaining !== undefined && newRemaining > 0 ? newRemaining : d.amount;
+        const newStatus: DebtStatus =
+          targetRemaining < d.amount ? 'partial' : 'unpaid';
+
+        const updated: Debt = {
+          ...d,
+          remainingAmount: targetRemaining,
+          status: newStatus,
+          updatedAt: new Date().toISOString(),
+        };
+        updatedObj = updated;
+        return updated;
+      })
+    );
+    if (updatedObj) {
+      try {
+        await setDoc(doc(db, 'debts', id), cleanForFirestore(updatedObj), { merge: true });
+      } catch (e) {
+        console.error('Reactivate debt firestore error:', e);
       }
     }
   };
@@ -841,8 +1119,6 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Automatic Debt Generation: When invoice has remaining unpaid balance (credit or partial)
     if (data.remainingAmount > 0) {
-      const todayStr = new Date().toISOString().split('T')[0];
-      const isOverdue = data.dueDate ? data.dueDate < todayStr : false;
       const debtId = `debt-inv-${Date.now()}`;
       generatedDebtId = debtId;
 
@@ -855,8 +1131,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         amount: data.totalAmount,
         remainingAmount: data.remainingAmount,
         date: data.date,
-        dueDate: data.dueDate || new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0],
-        status: data.paidAmount > 0 ? 'partial' : isOverdue ? 'overdue' : 'unpaid',
+        status: data.paidAmount > 0 ? 'partial' : 'unpaid',
         category: `فاتورة مشتريات #${data.invoiceNumber}`,
         notes: `فاتورة #${data.invoiceNumber}: ${itemsSummary}${data.notes ? ` | ${data.notes}` : ''}`,
         createdAt: nowIso,
@@ -904,7 +1179,6 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         amount: data.totalAmount,
         remainingAmount: 0,
         date: data.date,
-        dueDate: data.date,
         status: 'paid',
         category: `فاتورة نقدية #${data.invoiceNumber}`,
         notes: `فاتورة #${data.invoiceNumber} (مدفوعة كاش): ${itemsSummary}`,
@@ -989,16 +1263,12 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       const itemsSummary = updatedInvoice.items
         ? updatedInvoice.items.map((it) => `${it.name} (${it.quantity}x)`).join('، ')
         : '';
-      const todayStr = new Date().toISOString().split('T')[0];
-      const isOverdue = updatedInvoice.dueDate ? updatedInvoice.dueDate < todayStr : false;
 
       const debtStatus: Debt['status'] =
         updatedInvoice.remainingAmount === 0
           ? 'paid'
           : updatedInvoice.paidAmount > 0
           ? 'partial'
-          : isOverdue
-          ? 'overdue'
           : 'unpaid';
 
       setDebts((prev) =>
@@ -1010,7 +1280,6 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
               amount: updatedInvoice.totalAmount,
               remainingAmount: updatedInvoice.remainingAmount,
               date: updatedInvoice.date,
-              dueDate: updatedInvoice.dueDate || d.dueDate,
               status: debtStatus,
               notes: `فاتورة #${updatedInvoice.invoiceNumber}: ${itemsSummary}${
                 updatedInvoice.notes ? ` | ${updatedInvoice.notes}` : ''
@@ -1031,7 +1300,6 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
             amount: updatedInvoice.totalAmount,
             remainingAmount: updatedInvoice.remainingAmount,
             date: updatedInvoice.date,
-            dueDate: updatedInvoice.dueDate,
             status: debtStatus,
             notes: `فاتورة #${updatedInvoice.invoiceNumber}: ${itemsSummary}${
               updatedInvoice.notes ? ` | ${updatedInvoice.notes}` : ''
@@ -1068,6 +1336,109 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     } catch (e) {
       console.error('Delete invoice firestore error:', e);
+    }
+  };
+
+  // Commercial Papers (Chèques & Traites) Actions
+  const addCommercialPaper = async (
+    data: Omit<CommercialPaper, 'id' | 'createdAt' | 'updatedAt'>
+  ): Promise<CommercialPaper> => {
+    const newPaper: CommercialPaper = {
+      ...data,
+      id: `paper-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setCommercialPapers((prev) => [newPaper, ...prev]);
+
+    try {
+      await setDoc(doc(db, 'commercialPapers', newPaper.id), cleanForFirestore(newPaper));
+    } catch (e) {
+      console.error('Add commercial paper firestore error:', e);
+    }
+
+    try {
+      confetti({ particleCount: 30, spread: 60, origin: { y: 0.8 } });
+    } catch {
+      // ignore
+    }
+
+    return newPaper;
+  };
+
+  const updateCommercialPaper = async (id: string, updates: Partial<CommercialPaper>) => {
+    const updated = { ...updates, updatedAt: new Date().toISOString() };
+    setCommercialPapers((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...updated } : p))
+    );
+    try {
+      await setDoc(doc(db, 'commercialPapers', id), cleanForFirestore(updated), { merge: true });
+    } catch (e) {
+      console.error('Update commercial paper firestore error:', e);
+    }
+  };
+
+  const deleteCommercialPaper = async (id: string) => {
+    setCommercialPapers((prev) => prev.filter((p) => p.id !== id));
+    setNotifications((prev) => prev.filter((n) => n.paperId !== id));
+    try {
+      await deleteDoc(doc(db, 'commercialPapers', id));
+    } catch (e) {
+      console.error('Delete commercial paper firestore error:', e);
+    }
+  };
+
+  const changePaperStatus = async (
+    id: string,
+    status: CommercialPaperStatus,
+    extra?: { depositDate?: string; cashedDate?: string; notes?: string; autoRecordPayment?: boolean }
+  ) => {
+    const paper = commercialPapers.find((p) => p.id === id);
+    if (!paper) return;
+
+    const updates: Partial<CommercialPaper> = {
+      status,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (extra?.depositDate) updates.depositDate = extra.depositDate;
+    if (extra?.cashedDate) updates.cashedDate = extra.cashedDate;
+    if (extra?.notes) {
+      updates.notes = paper.notes ? `${paper.notes} | ${extra.notes}` : extra.notes;
+    }
+
+    if (status === 'cashed' && !updates.cashedDate) {
+      updates.cashedDate = new Date().toISOString().split('T')[0];
+    }
+    if (status === 'deposited' && !updates.depositDate) {
+      updates.depositDate = new Date().toISOString().split('T')[0];
+    }
+
+    setCommercialPapers((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
+    );
+
+    try {
+      await setDoc(doc(db, 'commercialPapers', id), cleanForFirestore(updates), { merge: true });
+    } catch (e) {
+      console.error('Change paper status firestore error:', e);
+    }
+
+    // Auto-record payment if cashed and requested
+    if (status === 'cashed' && extra?.autoRecordPayment && paper.direction === 'in') {
+      try {
+        await recordPayment({
+          debtId: paper.linkedDebtId,
+          customerId: paper.customerId,
+          amount: paper.amount,
+          paymentMethod: 'check',
+          notes: `تحصيل وصرف ${paper.type === 'cheque' ? 'شيك' : 'كمبيالة'} رقم ${paper.number} (${paper.bankName})`,
+          paymentDate: updates.cashedDate || new Date().toISOString().split('T')[0],
+        });
+      } catch (err) {
+        console.error('Auto record payment for cashed paper error:', err);
+      }
     }
   };
 
@@ -1271,6 +1642,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       transactions,
       invoices,
       notifications,
+      commercialPapers,
       config,
       userProfile,
       exportDate: new Date().toISOString(),
@@ -1294,6 +1666,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         if (parsed.transactions) setTransactions(parsed.transactions);
         if (parsed.invoices) setInvoices(parsed.invoices);
         if (parsed.notifications) setNotifications(parsed.notifications);
+        if (parsed.commercialPapers) setCommercialPapers(parsed.commercialPapers);
         if (parsed.config) setConfig(parsed.config);
         if (parsed.userProfile) setUserProfile(parsed.userProfile);
 
@@ -1303,6 +1676,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         if (parsed.transactions) parsed.transactions.forEach((t: Transaction) => setDoc(doc(db, 'transactions', t.id), cleanForFirestore(t)).catch(console.error));
         if (parsed.invoices) parsed.invoices.forEach((inv: Invoice) => setDoc(doc(db, 'invoices', inv.id), cleanForFirestore(inv)).catch(console.error));
         if (parsed.notifications) parsed.notifications.forEach((n: NotificationItem) => setDoc(doc(db, 'notifications', n.id), cleanForFirestore(n)).catch(console.error));
+        if (parsed.commercialPapers) parsed.commercialPapers.forEach((p: CommercialPaper) => setDoc(doc(db, 'commercialPapers', p.id), cleanForFirestore(p)).catch(console.error));
         if (parsed.config) setDoc(doc(db, 'settings', 'config'), cleanForFirestore(parsed.config)).catch(console.error);
         if (parsed.userProfile) setDoc(doc(db, 'settings', 'profile'), cleanForFirestore(parsed.userProfile)).catch(console.error);
 
@@ -1320,6 +1694,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     setTransactions(initialTransactions);
     setInvoices(initialInvoices);
     setNotifications(initialNotifications);
+    setCommercialPapers(initialCommercialPapers);
     setConfig(defaultConfig);
     setUserProfile(defaultProfile);
     localStorage.clear();
@@ -1330,6 +1705,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       initialTransactions.forEach((t) => setDoc(doc(db, 'transactions', t.id), cleanForFirestore(t)).catch(console.error));
       initialInvoices.forEach((inv) => setDoc(doc(db, 'invoices', inv.id), cleanForFirestore(inv)).catch(console.error));
       initialNotifications.forEach((n) => setDoc(doc(db, 'notifications', n.id), cleanForFirestore(n)).catch(console.error));
+      initialCommercialPapers.forEach((p) => setDoc(doc(db, 'commercialPapers', p.id), cleanForFirestore(p)).catch(console.error));
       setDoc(doc(db, 'settings', 'config'), cleanForFirestore(defaultConfig)).catch(console.error);
       setDoc(doc(db, 'settings', 'profile'), cleanForFirestore(defaultProfile)).catch(console.error);
     } catch (e) {
@@ -1349,6 +1725,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         transactions,
         invoices,
         notifications,
+        commercialPapers,
         config,
         userProfile,
         activeTab,
@@ -1362,11 +1739,16 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         deleteCustomer,
         addDebt,
         updateDebt,
+        reactivateDebt,
         deleteDebt,
         consolidateCustomerDebts,
         createInvoice,
         updateInvoice,
         deleteInvoice,
+        addCommercialPaper,
+        updateCommercialPaper,
+        deleteCommercialPaper,
+        changePaperStatus,
         recordPayment,
         deleteTransaction,
         updateConfig,

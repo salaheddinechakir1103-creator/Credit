@@ -4,6 +4,7 @@ import { useCreditManager } from '../context/CreditManagerContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { getTranslation } from '../utils/translations';
 import { Transaction } from '../types/creditManager';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 export const TransactionsList: React.FC = () => {
   const { transactions, customers, debts, config, deleteTransaction, userProfile } = useCreditManager();
@@ -11,6 +12,7 @@ export const TransactionsList: React.FC = () => {
 
   const [search, setSearch] = useState('');
   const [selectedTxForReceipt, setSelectedTxForReceipt] = useState<Transaction | null>(null);
+  const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
 
   const filteredTxs = transactions.filter((tx) => {
     const cust = customers.find((c) => c.id === tx.customerId);
@@ -124,10 +126,8 @@ export const TransactionsList: React.FC = () => {
                       <Printer className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => {
-                        if (confirm(t.confirmDelete)) deleteTransaction(tx.id);
-                      }}
-                      className="p-2 text-slate-400 hover:text-rose-600 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                      onClick={() => setTxToDelete(tx)}
+                      className="p-2 text-slate-400 hover:text-rose-600 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
                       title={t.confirmDelete}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -199,6 +199,37 @@ export const TransactionsList: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Confirm Delete Transaction Modal */}
+      <ConfirmDeleteModal
+        isOpen={!!txToDelete}
+        title="تأكيد حذف عملية الدفع"
+        message="هل أنت متأكد من حذف هذه الدفعة نهائياً؟"
+        details={
+          txToDelete ? (
+            <div className="space-y-1 font-mono">
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-sans">رقم الإيصال:</span>
+                <span className="font-bold">{txToDelete.receiptNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-sans">المبلغ:</span>
+                <span className="font-bold text-emerald-600">
+                  {formatCurrency(txToDelete.amount, config.currency, config.language)}
+                </span>
+              </div>
+            </div>
+          ) : undefined
+        }
+        onConfirm={async () => {
+          if (txToDelete) {
+            const id = txToDelete.id;
+            setTxToDelete(null);
+            await deleteTransaction(id);
+          }
+        }}
+        onCancel={() => setTxToDelete(null)}
+      />
     </div>
   );
 };

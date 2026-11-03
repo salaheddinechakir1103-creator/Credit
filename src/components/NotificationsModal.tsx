@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Bell, AlertTriangle, CheckCircle2, Clock, Check } from 'lucide-react';
+import { X, Bell, AlertTriangle, CheckCircle2, Clock, Check, Landmark } from 'lucide-react';
 import { useCreditManager } from '../context/CreditManagerContext';
 import { formatDate } from '../utils/formatters';
 import { getTranslation } from '../utils/translations';
@@ -9,8 +9,19 @@ interface NotificationsModalProps {
 }
 
 export const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose }) => {
-  const { notifications, markNotificationRead, config } = useCreditManager();
+  const { notifications, markNotificationRead, config, setActiveTab } = useCreditManager();
   const t = getTranslation(config.language);
+
+  const handleNotificationClick = (notif: typeof notifications[0]) => {
+    markNotificationRead(notif.id);
+    if (notif.paperId || notif.type === 'cheque_due_soon' || notif.type === 'cheque_overdue') {
+      setActiveTab('commercial_papers');
+      onClose();
+    } else if (notif.debtId) {
+      setActiveTab('debts');
+      onClose();
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
@@ -23,7 +34,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose 
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white rounded-full hover:bg-slate-800 transition-all"
+            className="p-1.5 text-slate-400 hover:text-white rounded-full hover:bg-slate-800 transition-all cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -35,7 +46,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose 
             <span className="text-slate-500">{notifications.length} إشعار</span>
             <button
               onClick={() => markNotificationRead()}
-              className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+              className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
             >
               <Check className="w-3.5 h-3.5" /> {t.markAllRead}
             </button>
@@ -53,24 +64,30 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose 
             notifications.map((notif) => (
               <div
                 key={notif.id}
-                onClick={() => markNotificationRead(notif.id)}
+                onClick={() => handleNotificationClick(notif)}
                 className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
                   notif.read
                     ? 'bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 opacity-75'
+                    : notif.type === 'cheque_due_soon' || notif.type === 'cheque_overdue'
+                    ? 'bg-amber-50/70 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800/60 font-medium'
                     : 'bg-indigo-50/50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/60 font-medium'
                 }`}
               >
                 <div className="flex items-start gap-3">
                   <div
                     className={`p-2 rounded-xl shrink-0 ${
-                      notif.type === 'overdue'
+                      notif.type === 'cheque_overdue' || notif.type === 'overdue'
                         ? 'bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400'
+                        : notif.type === 'cheque_due_soon'
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 animate-pulse'
                         : notif.type === 'payment'
                         ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400'
                         : 'bg-indigo-100 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400'
                     }`}
                   >
-                    {notif.type === 'overdue' ? (
+                    {notif.type === 'cheque_due_soon' || notif.type === 'cheque_overdue' ? (
+                      <Landmark className="w-4 h-4" />
+                    ) : notif.type === 'overdue' ? (
                       <AlertTriangle className="w-4 h-4" />
                     ) : notif.type === 'payment' ? (
                       <CheckCircle2 className="w-4 h-4" />
@@ -79,11 +96,18 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ onClose 
                     )}
                   </div>
 
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                      {notif.title}
-                    </h4>
-                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        {notif.title}
+                      </h4>
+                      {(notif.type === 'cheque_due_soon' || notif.type === 'cheque_overdue') && (
+                        <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 shrink-0">
+                          شيك/كمبيالة
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">
                       {notif.message}
                     </p>
                     <span className="text-[10px] text-slate-400 block mt-1">

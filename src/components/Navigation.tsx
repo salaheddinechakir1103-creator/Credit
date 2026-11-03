@@ -13,17 +13,29 @@ import {
   X,
   ChevronRight,
   Sparkles,
+  Landmark,
 } from 'lucide-react';
 import { useCreditManager } from '../context/CreditManagerContext';
 import { getTranslation } from '../utils/translations';
 
 export const Navigation: React.FC = () => {
-  const { activeTab, setActiveTab, config, debts } = useCreditManager();
+  const { activeTab, setActiveTab, config, debts, commercialPapers } = useCreditManager();
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const t = getTranslation(config.language);
 
   // Overdue count badge
   const overdueCount = debts.filter((d) => d.status === 'overdue').length;
+
+  // Commercial papers due soon or overdue badge
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const paperAlertsCount = (commercialPapers || []).filter((p) => {
+    if (p.status !== 'safe' && p.status !== 'deposited') return false;
+    const due = new Date(p.dueDate);
+    due.setHours(0, 0, 0, 0);
+    const diff = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return diff <= (config.reminderDaysBefore || 7);
+  }).length;
 
   const allNavItems = [
     { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
@@ -34,6 +46,13 @@ export const Navigation: React.FC = () => {
       label: t.debts,
       icon: Receipt,
       badge: overdueCount > 0 ? overdueCount : undefined,
+    },
+    {
+      id: 'commercial_papers',
+      label: 'الشيكات والكمبيالات',
+      icon: Landmark,
+      badge: paperAlertsCount > 0 ? paperAlertsCount : undefined,
+      isPaperAlert: paperAlertsCount > 0,
     },
     { id: 'invoices', label: 'الفواتير', icon: FileSpreadsheet },
     { id: 'transactions', label: t.transactions, icon: History },
@@ -56,7 +75,7 @@ export const Navigation: React.FC = () => {
   ];
 
   // Secondary items in the "More" menu
-  const isSecondaryActive = ['invoices', 'transactions', 'reports', 'settings', 'profile'].includes(activeTab);
+  const isSecondaryActive = ['commercial_papers', 'invoices', 'transactions', 'reports', 'settings', 'profile'].includes(activeTab);
 
   const handleSelectTab = (tabId: string) => {
     setActiveTab(tabId);
@@ -98,7 +117,11 @@ export const Navigation: React.FC = () => {
                 ) : item.badge ? (
                   <span
                     className={`px-2 py-0.5 text-xs rounded-full font-bold flex items-center gap-1 ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+                      isActive
+                        ? 'bg-white/20 text-white'
+                        : item.isPaperAlert
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                        : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
                     }`}
                   >
                     <AlertTriangle className="w-3 h-3" />

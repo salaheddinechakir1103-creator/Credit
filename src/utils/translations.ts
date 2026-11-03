@@ -140,9 +140,34 @@ export const translations = {
     noNotifications: 'لا توجد إشعارات جديدة حالياً',
     markAllRead: 'تحديد الكل كمقروء',
 
+    // Commercial Papers (Chèques & Traites)
+    commercialPapers: 'الشيكات والكمبيالات',
+    commercialPapersSubtitle: 'إدارة الشيكات ولاطريت وتنبيهات اقتراب موعد الصرف',
+    addCheque: 'إضافة شيك جديد',
+    addTraite: 'إضافة كمبيالة (طريت)',
+    cheque: 'شيك',
+    traite: 'كمبيالة (طريت)',
+    paperNumber: 'رقم الشيك / الكمبيالة',
+    bank: 'البنك',
+    drawer: 'الساحب / المحرر',
+    beneficiary: 'المستفيد',
+    directionIn: 'مقبوض (وارد من زبون)',
+    directionOut: 'صادر (مدفوع لمورد)',
+    statusSafe: 'في المحفظة (قيد الحفظ)',
+    statusDeposited: 'مودع بالبنك للتحصيل',
+    statusCashed: 'مستخلص (تم الصرف بنجاح)',
+    statusRejected: 'مرفوض (بدون رصيد)',
+    statusCancelled: 'ملغى / مسترجع',
+    dueSoonAlert: 'تنبيه: اقتراب موعد صرف شيكات أو كمبيالات!',
+    dueTodayAlert: 'تنبيه عاجل: شيكات أو كمبيالات تستحق الصرف اليوم!',
+    overduePaperAlert: 'تنبيه: شيكات أو كمبيالات متأخرة عن موعد الاستحقاق!',
+    bordereauRemise: 'كشف إيداع بنكي (Bordereau)',
+
     // WhatsApp Reminder Template
     whatsappReminder: (name: string, amount: string, currency: string, dueDate: string) =>
       `السلام عليكم ورحمة الله وبركاته 🌹\nأخي الفاضل / أختي الكريمة: *${name}*\nتحية طيبة مباركة ملؤها التقدير والاحترام ✨\n\nنود تذكيركم بلطف وبكل مودة بأن الرصيد المسجل بذمتكم الكريمة هو: *${amount}* (${currency})\nتاريخ الاستحقاق: ${dueDate}\n\nنحن دائماً في خدمتكم ويسرنا تواصلكم في أي وقت يناسبكم. بارك الله لكم في رزقكم وأهلكم وجزاكم الله عنا كل خير 🤲🌸`,
+    whatsappPaperReminder: (name: string, type: string, number: string, amount: string, currency: string, dueDate: string) =>
+      `السلام عليكم ورحمة الله وبركاته 🌹\nالسيد(ة) المحترم(ة): *${name}*\nتحية طيبة وبعد،\n\nنود تذكيركم بموعد استحقاق *${type}* رقم: *${number}*\nالمبلغ: *${amount}* (${currency})\nتاريخ الصرف المحدد: *${dueDate}*\n\nيرجى التكرم بتأكيد توفر الرصيد الكافي بالحساب لتفادي أي تأخير. شكراً جزيلاً لتعاملكم الراقي والدائم معنا 🤝✨`,
   },
 
   fr: {
@@ -257,9 +282,33 @@ export const translations = {
     overdueNotice: 'Alerte : Dettes en retard !',
     noNotifications: 'Aucune notification récente',
     markAllRead: 'Tout marquer comme lu',
+    // Commercial Papers (Chèques & Traites)
+    commercialPapers: 'Chèques & Traites',
+    commercialPapersSubtitle: 'Gestion des chèques et effets de commerce avec alertes d\'échéance',
+    addCheque: 'Nouveau Chèque',
+    addTraite: 'Nouvelle Traite',
+    cheque: 'Chèque',
+    traite: 'Traite (Effet)',
+    paperNumber: 'N° de Chèque / Traite',
+    bank: 'Banque',
+    drawer: 'Tireur / Émetteur',
+    beneficiary: 'Bénéficiaire',
+    directionIn: 'Reçu (Entrant - Client)',
+    directionOut: 'Émis (Sortant - Fournisseur)',
+    statusSafe: 'En portefeuille (En attente)',
+    statusDeposited: 'Remis à l\'encaissement (Déposé)',
+    statusCashed: 'Encaissé avec succès',
+    statusRejected: 'Rejeté / Impayé',
+    statusCancelled: 'Annulé / Restitué',
+    dueSoonAlert: 'Alerte : Chèques ou traites arrivant bientôt à échéance !',
+    dueTodayAlert: 'Alerte urgente : Chèques ou traites arrivant à échéance AUJOURD\'HUI !',
+    overduePaperAlert: 'Alerte : Chèques ou traites en retard d\'échéance !',
+    bordereauRemise: 'Bordereau de remise de chèques/traites',
 
     whatsappReminder: (name: string, amount: string, currency: string, dueDate: string) =>
       `Bonjour M./Mme ${name}, nous vous rappelons gentiment un solde restant de ${amount} ${currency}, arrivant à échéance le ${dueDate}. Merci !`,
+    whatsappPaperReminder: (name: string, type: string, number: string, amount: string, currency: string, dueDate: string) =>
+      `Bonjour M./Mme ${name}, nous vous rappelons l'échéance de votre ${type} N° ${number} d'un montant de ${amount} ${currency}, prévue le ${dueDate}. Merci de veiller à la provision suffisante. Cordialement !`,
   },
 
   en: {
@@ -370,13 +419,39 @@ export const translations = {
     confirmDelete: 'Are you sure you want to delete this record?',
     confirmClearData: 'Are you sure you want to reset all app data to defaults?',
 
+    // Notifications
     reminderNotice: 'Reminder: Upcoming due debts!',
     overdueNotice: 'Warning: Overdue debts require attention!',
     noNotifications: 'No new notifications',
     markAllRead: 'Mark all as read',
 
+    // Commercial Papers (Chèques & Traites)
+    commercialPapers: 'Cheques & Promissory Notes',
+    commercialPapersSubtitle: 'Cheques and commercial bills tracking with due date alerts',
+    addCheque: 'Add New Cheque',
+    addTraite: 'Add Promissory Note (Traite)',
+    cheque: 'Cheque',
+    traite: 'Promissory Note (Traite)',
+    paperNumber: 'Cheque / Traite Number',
+    bank: 'Bank',
+    drawer: 'Drawer / Issuer',
+    beneficiary: 'Beneficiary',
+    directionIn: 'Received (From Customer)',
+    directionOut: 'Issued (To Supplier)',
+    statusSafe: 'In Portfolio (Safe)',
+    statusDeposited: 'Deposited in Bank',
+    statusCashed: 'Cleared / Cashed',
+    statusRejected: 'Bounced / Unpaid',
+    statusCancelled: 'Cancelled / Returned',
+    dueSoonAlert: 'Alert: Cheques or commercial bills due soon!',
+    dueTodayAlert: 'Urgent: Cheques or bills due TODAY!',
+    overduePaperAlert: 'Alert: Overdue cheques or commercial bills!',
+    bordereauRemise: 'Bank Deposit Slip (Bordereau)',
+
     whatsappReminder: (name: string, amount: string, currency: string, dueDate: string) =>
       `Hello ${name}, friendly reminder regarding the outstanding balance of ${amount} ${currency}, due on ${dueDate}. Thank you!`,
+    whatsappPaperReminder: (name: string, type: string, number: string, amount: string, currency: string, dueDate: string) =>
+      `Hello ${name}, friendly reminder regarding your ${type} No. ${number} for ${amount} ${currency}, due on ${dueDate}. Please make sure sufficient funds are available. Best regards!`,
   },
 };
 
