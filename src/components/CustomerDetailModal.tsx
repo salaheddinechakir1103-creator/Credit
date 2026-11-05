@@ -40,6 +40,7 @@ interface CustomerDetailModalProps {
   onOpenAddDebtForCustomer: (customerId: string) => void;
   onOpenCreateInvoiceForCustomer?: (customerId: string) => void;
   onOpenRecordPayment: (debtId?: string, customerId?: string) => void;
+  onEditDebt?: (debt: Debt) => void;
 }
 
 export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
@@ -47,6 +48,7 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
   onOpenAddDebtForCustomer,
   onOpenCreateInvoiceForCustomer,
   onOpenRecordPayment,
+  onEditDebt,
 }) => {
   const {
     customers,
@@ -65,6 +67,7 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
 
   const [activeSubTab, setActiveSubTab] = useState<'debts' | 'transactions' | 'invoices' | 'papers'>('debts');
   const [isConsolidating, setIsConsolidating] = useState<boolean>(false);
+  const [reactivateSuccess, setReactivateSuccess] = useState<string | null>(null);
   const [isStatementModalOpen, setIsStatementModalOpen] = useState<boolean>(false);
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState<boolean>(false);
   const [selectedInvoiceToView, setSelectedInvoiceToView] = useState<Invoice | null>(null);
@@ -93,6 +96,23 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
     await consolidateCustomerDebts(customer.id);
     setIsConsolidating(false);
   };
+
+  const handleReactivate = async (debtId: string) => {
+    await reactivateDebt(debtId);
+    setReactivateSuccess('تمت استعادة الدين بنجاح وحفظه في السجل وقاعدة البيانات');
+    setTimeout(() => setReactivateSuccess(null), 3500);
+  };
+
+  const handleReactivateAll = async () => {
+    const zeroDebts = custDebts.filter((d) => (d.remainingAmount ?? 0) <= 0);
+    for (const d of zeroDebts) {
+      await reactivateDebt(d.id, d.amount);
+    }
+    setReactivateSuccess(`تمت استعادة ${zeroDebts.length} ديون سابقة بنجاح وحفظها`);
+    setTimeout(() => setReactivateSuccess(null), 3500);
+  };
+
+  const zeroDebtsCount = custDebts.filter((d) => (d.remainingAmount ?? 0) <= 0).length;
 
   const handleExportExcel = () => {
     exportCustomerStatementToExcel(customer, custDebts, custTransactions, config, userProfile);
@@ -256,51 +276,73 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
           </div>
         </div>
 
+        {/* Success toast if reactivated */}
+        {reactivateSuccess && (
+          <div className="mx-6 mb-3 p-3 rounded-2xl bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{reactivateSuccess}</span>
+          </div>
+        )}
+
         {/* Tab Switcher */}
-        <div className="px-6 flex border-b border-slate-200 dark:border-slate-800 gap-6 overflow-x-auto">
-          <button
-            onClick={() => setActiveSubTab('debts')}
-            className={`pb-3 text-xs font-bold transition-all border-b-2 whitespace-nowrap ${
-              activeSubTab === 'debts'
-                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            {t.customerDebts} ({custDebts.length})
-          </button>
-          <button
-            onClick={() => setActiveSubTab('invoices')}
-            className={`pb-3 text-xs font-bold transition-all border-b-2 whitespace-nowrap ${
-              activeSubTab === 'invoices'
-                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            الفواتير والمبيعات ({custInvoices.length})
-          </button>
-          <button
-            onClick={() => setActiveSubTab('papers')}
-            className={`pb-3 text-xs font-bold transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 ${
-              activeSubTab === 'papers'
-                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <span>الشيكات والكمبيالات</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-100 dark:bg-slate-800 font-bold">
-              {custPapers.length}
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveSubTab('transactions')}
-            className={`pb-3 text-xs font-bold transition-all border-b-2 whitespace-nowrap ${
-              activeSubTab === 'transactions'
-                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            {t.customerTransactions} ({custTransactions.length})
-          </button>
+        <div className="px-6 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 gap-4 overflow-x-auto">
+          <div className="flex gap-6 overflow-x-auto">
+            <button
+              onClick={() => setActiveSubTab('debts')}
+              className={`pb-3 text-xs font-bold transition-all border-b-2 whitespace-nowrap ${
+                activeSubTab === 'debts'
+                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              {t.customerDebts} ({custDebts.length})
+            </button>
+            <button
+              onClick={() => setActiveSubTab('invoices')}
+              className={`pb-3 text-xs font-bold transition-all border-b-2 whitespace-nowrap ${
+                activeSubTab === 'invoices'
+                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              الفواتير والمبيعات ({custInvoices.length})
+            </button>
+            <button
+              onClick={() => setActiveSubTab('papers')}
+              className={`pb-3 text-xs font-bold transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 ${
+                activeSubTab === 'papers'
+                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <span>الشيكات والكمبيالات</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-100 dark:bg-slate-800 font-bold">
+                {custPapers.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveSubTab('transactions')}
+              className={`pb-3 text-xs font-bold transition-all border-b-2 whitespace-nowrap ${
+                activeSubTab === 'transactions'
+                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              {t.customerTransactions} ({custTransactions.length})
+            </button>
+          </div>
+
+          {activeSubTab === 'debts' && zeroDebtsCount > 0 && (
+            <button
+              type="button"
+              onClick={handleReactivateAll}
+              className="mb-2 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 dark:hover:bg-amber-900/40 px-2.5 py-1 rounded-xl border border-amber-200 dark:border-amber-800 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-xs active:scale-95"
+              title="استعادة كل الديون القديمة المسجلة بـ 0 لتعود مبالغها نشطة في الحساب"
+            >
+              <RotateCcw className="w-3 h-3 text-amber-600" />
+              <span>استعادة كل الديون المسددة ({zeroDebtsCount})</span>
+            </button>
+          )}
         </div>
 
         {/* Sub-tab Content */}
@@ -350,6 +392,17 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                       </div>
                     </div>
 
+                    {onEditDebt && (
+                      <button
+                        type="button"
+                        onClick={() => onEditDebt(d)}
+                        className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                        title="تعديل هذا الدين والمبلغ المتبقي"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
                     {d.remainingAmount > 0 ? (
                       <>
                         <button
@@ -371,8 +424,8 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                       </>
                     ) : (
                       <button
-                        onClick={() => reactivateDebt(d.id)}
-                        className="px-2.5 py-1.5 text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-xl transition-all flex items-center gap-1 border border-amber-200 dark:border-amber-800 cursor-pointer"
+                        onClick={() => handleReactivate(d.id)}
+                        className="px-2.5 py-1.5 text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-xl transition-all flex items-center gap-1 border border-amber-200 dark:border-amber-800 cursor-pointer shadow-xs active:scale-95"
                         title="استعادة هذا الدين كدين نشط (إلغاء الصفر / وضع السداد)"
                       >
                         <RotateCcw className="w-3.5 h-3.5 text-amber-600" />

@@ -45,7 +45,6 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
   );
   const [category, setCategory] = useState<string>(debtToEdit?.category || '');
   const [notes, setNotes] = useState<string>(debtToEdit?.notes || '');
-  const [mergeWithPrevious, setMergeWithPrevious] = useState<boolean>(true);
   const [remainingAmountInput, setRemainingAmountInput] = useState<string>(
     debtToEdit ? String(debtToEdit.remainingAmount ?? debtToEdit.amount) : ''
   );
@@ -91,21 +90,18 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
         amount: numAmount,
         remainingAmount: isNaN(numRemaining) ? numAmount : numRemaining,
         date,
-        category,
-        notes,
+        category: category.trim() || 'دين عام',
+        notes: notes.trim(),
       });
     } else {
-      addDebt(
-        {
-          customerId,
-          type,
-          amount: numAmount,
-          date,
-          category: category || (mergeWithPrevious && previousBalance > 0 ? 'بون إجمالي موحد' : 'دين جديد'),
-          notes,
-        },
-        mergeWithPrevious && previousBalance > 0
-      );
+      addDebt({
+        customerId,
+        type,
+        amount: numAmount,
+        date,
+        category: category.trim() || 'بون سلع / دين جديد',
+        notes: notes.trim(),
+      });
     }
 
     onClose();
@@ -250,12 +246,12 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
             </div>
           </div>
 
-          {/* Previous Balance Banner & Merge Toggle for the concerned customer */}
+          {/* Previous Balance Info Banner (Read-only reference: each bon is kept completely separate) */}
           {!debtToEdit && customerId && previousBalance > 0 && (
-            <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/60 space-y-2">
+            <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/60 space-y-1.5">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-indigo-900 dark:text-indigo-200 font-semibold">
-                  الرصيد السابق للزبون المعني:
+                  الرصيد السابق للزبون:
                 </span>
                 <span className="font-bold text-indigo-900 dark:text-indigo-200">
                   {formatCurrency(previousBalance, config.currency, config.language)}
@@ -263,26 +259,16 @@ export const AddDebtModal: React.FC<AddDebtModalProps> = ({
               </div>
 
               {numAmount > 0 && (
-                <div className="flex items-center justify-between text-xs font-bold text-emerald-800 dark:text-emerald-300 pt-1.5 border-t border-indigo-200/60 dark:border-indigo-900/60">
-                  <span>المجموع الإجمالي (القديم + الجديد):</span>
-                  <span className="text-sm">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 pt-1 border-t border-indigo-200/60 dark:border-indigo-900/60">
+                  <span>المجموع الإجمالي المتوقع:</span>
+                  <span className="text-sm font-extrabold text-indigo-600 dark:text-indigo-400">
                     {formatCurrency(newTotalBalance, config.currency, config.language)}
                   </span>
                 </div>
               )}
-
-              <label className="flex items-center gap-2 pt-1 cursor-pointer text-xs font-bold text-indigo-900 dark:text-indigo-200">
-                <input
-                  type="checkbox"
-                  checked={mergeWithPrevious}
-                  onChange={(e) => setMergeWithPrevious(e.target.checked)}
-                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
-                />
-                <span className="flex items-center gap-1">
-                  <Combine className="w-3.5 h-3.5 text-indigo-600" />
-                  دمج مع الرصيد السابق ليصبح بوناً واحداً بمبلغ إجمالي
-                </span>
-              </label>
+              <div className="text-[10px] text-indigo-700/80 dark:text-indigo-300/80 font-medium">
+                * يتم تسجيل هذا البون كبون مستقل بمبلغه الخاص دون دمجه مع بونات أخرى
+              </div>
             </div>
           )}
 

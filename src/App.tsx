@@ -186,6 +186,7 @@ const MainWorkspace: React.FC = () => {
           onOpenAddDebtForCustomer={(cId) => handleOpenAddDebt(cId)}
           onOpenCreateInvoiceForCustomer={(cId) => handleOpenCreateInvoice(cId)}
           onOpenRecordPayment={(dId, cId) => handleOpenRecordPayment(dId, cId)}
+          onEditDebt={(debt) => handleOpenEditDebt(debt)}
         />
       )}
 

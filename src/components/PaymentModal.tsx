@@ -39,7 +39,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   defaultCustomerId,
   onClose,
 }) => {
-  const { debts, customers, recordPayment, consolidateCustomerDebts, config } = useCreditManager();
+  const { debts, customers, recordPayment, config } = useCreditManager();
   const t = getTranslation(config.language);
 
   // Group all customers who have remaining debt
@@ -74,7 +74,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [paySpecificDebtOnly, setPaySpecificDebtOnly] = useState<boolean>(false);
   const [selectedDebtId, setSelectedDebtId] = useState<string>(defaultDebtId || '');
-  const [isConsolidating, setIsConsolidating] = useState<boolean>(false);
 
   // The specific debtor currently selected (المعني بالأمر)
   const currentDebtor = debtorCustomers.find((item) => item.customer.id === selectedCustomerId);
@@ -130,13 +129,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     } else if (currentDebtor) {
       setAmount(currentDebtor.totalRemaining.toString());
     }
-  };
-
-  const handleConsolidateNow = async () => {
-    if (!selectedCustomerId) return;
-    setIsConsolidating(true);
-    await consolidateCustomerDebts(selectedCustomerId);
-    setIsConsolidating(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -396,18 +388,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 {/* Multiple Debts Breakdown & 1-Click Consolidation for this customer */}
                 {currentDebtor.debtCount > 1 && (
                   <div className="pt-2.5 border-t border-emerald-200/60 dark:border-emerald-900/60 space-y-2">
-                    <div className="text-[11px] font-bold text-emerald-900 dark:text-emerald-300 flex items-center justify-between">
-                      <span>تفاصيل البونات المكونة للمبلغ ({currentDebtor.debtCount}):</span>
-                      <button
-                        type="button"
-                        onClick={handleConsolidateNow}
-                        disabled={isConsolidating}
-                        className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 hover:text-emerald-950 bg-white dark:bg-emerald-900/60 px-2 py-0.5 rounded-lg border border-emerald-300 dark:border-emerald-800 flex items-center gap-1 shadow-xs"
-                        title="دمج جميع البونات في بون واحد نهائي"
-                      >
-                        <Combine className="w-3 h-3" />
-                        <span>دمج في بون واحد نهائي</span>
-                      </button>
+                    <div className="text-[11px] font-bold text-emerald-900 dark:text-emerald-300">
+                      <span>تفاصيل البونات المنفصلة المسجلة بذمة الزبون ({currentDebtor.debtCount}):</span>
                     </div>
 
                     <div className="space-y-1 max-h-24 overflow-y-auto pe-1">

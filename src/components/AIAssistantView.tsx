@@ -249,7 +249,6 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({
         type: parsedResult.debtType === 'alya' ? 'alya' : 'lya',
         amount,
         date: new Date().toISOString().split('T')[0],
-        dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
         category:
           parsedResult.description ||
           (parsedResult.items ? parsedResult.items.map((i: any) => i.name).join(', ') : 'مشتريات عبر الذكاء الاصطناعي'),

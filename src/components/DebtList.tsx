@@ -233,7 +233,7 @@ export const DebtList: React.FC<DebtListProps> = ({
         <div className="space-y-3">
           {filteredDebts.map((debt) => {
             const cust = customers.find((c) => c.id === debt.customerId);
-            const daysLeft = daysUntil(debt.dueDate);
+            const daysLeft = daysUntil(debt.dueDate || '');
 
             return (
               <div
@@ -310,14 +310,18 @@ export const DebtList: React.FC<DebtListProps> = ({
                     )}
 
                     <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-2">
-                      <span>تاريخ النشأة: {formatDate(debt.date, config.language)}</span>
-                      <span>•</span>
-                      <span className={daysLeft < 0 ? 'text-rose-500 font-bold' : ''}>
-                        الاستحقاق: {formatDate(debt.dueDate, config.language)}{' '}
-                        {daysLeft < 0
-                          ? `(متأخر ${Math.abs(daysLeft)} يوم)`
-                          : `(متبقي ${daysLeft} يوم)`}
-                      </span>
+                      <span>تاريخ المعاملة: {formatDate(debt.date, config.language)}</span>
+                      {debt.dueDate && (
+                        <>
+                          <span>•</span>
+                          <span className={daysLeft < 0 ? 'text-rose-500 font-bold' : ''}>
+                            الاستحقاق: {formatDate(debt.dueDate, config.language)}{' '}
+                            {daysLeft < 0
+                              ? `(متأخر ${Math.abs(daysLeft)} يوم)`
+                              : `(متبقي ${daysLeft} يوم)`}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

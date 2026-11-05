@@ -39,6 +39,7 @@ export interface Debt {
   amount: number;
   remainingAmount: number;
   date: string;
+  dueDate?: string;
   status: DebtStatus;
   notes?: string;
   category?: string;
@@ -74,6 +75,7 @@ export interface Invoice {
   invoiceNumber: string;
   customerId: string;
   date: string;
+  dueDate?: string;
   items: InvoiceItem[];
   subtotal: number;
   discount: number;

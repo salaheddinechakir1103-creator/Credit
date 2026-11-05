@@ -989,74 +989,58 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const updateDebt = async (id: string, updates: Partial<Debt>) => {
-    let updatedObj: Debt | null = null;
-    setDebts((prev) =>
-      prev.map((d) => {
-        if (d.id !== id) return d;
-        const newAmount = updates.amount !== undefined ? Number(updates.amount) : d.amount;
-        let newRemaining =
-          updates.remainingAmount !== undefined ? Number(updates.remainingAmount) : d.remainingAmount;
+    const existing = debts.find((d) => d.id === id);
+    if (!existing) return;
 
-        // If remaining is undefined or NaN, fallback to newAmount
-        if (newRemaining === undefined || newRemaining === null || isNaN(newRemaining)) {
-          newRemaining = newAmount;
-        }
+    const newAmount = updates.amount !== undefined ? Number(updates.amount) : existing.amount;
+    let newRemaining =
+      updates.remainingAmount !== undefined ? Number(updates.remainingAmount) : existing.remainingAmount;
 
-        const updated: Debt = {
-          ...d,
-          ...updates,
-          amount: newAmount,
-          remainingAmount: newRemaining,
-          updatedAt: new Date().toISOString(),
-        };
+    // If remaining is undefined or NaN, fallback to newAmount
+    if (newRemaining === undefined || newRemaining === null || isNaN(newRemaining)) {
+      newRemaining = newAmount;
+    }
 
-        if (updated.remainingAmount <= 0) {
-          updated.status = 'paid';
-          updated.remainingAmount = 0;
-        } else if (updated.remainingAmount < updated.amount) {
-          updated.status = 'partial';
-        } else {
-          updated.status = 'unpaid';
-        }
-        updatedObj = updated;
-        return updated;
-      })
-    );
-    if (updatedObj) {
-      try {
-        await setDoc(doc(db, 'debts', id), cleanForFirestore(updatedObj), { merge: true });
-      } catch (e) {
-        console.error('Update debt firestore error:', e);
-      }
+    const updated: Debt = {
+      ...existing,
+      ...updates,
+      amount: newAmount,
+      remainingAmount: newRemaining <= 0 ? 0 : newRemaining,
+      status: newRemaining <= 0 ? 'paid' : newRemaining < newAmount ? 'partial' : 'unpaid',
+      updatedAt: new Date().toISOString(),
+    };
+
+    setDebts((prev) => prev.map((d) => (d.id === id ? updated : d)));
+
+    try {
+      await setDoc(doc(db, 'debts', id), cleanForFirestore(updated), { merge: true });
+    } catch (e) {
+      console.error('Update debt firestore error:', e);
     }
   };
 
   const reactivateDebt = async (id: string, newRemaining?: number) => {
-    let updatedObj: Debt | null = null;
-    setDebts((prev) =>
-      prev.map((d) => {
-        if (d.id !== id) return d;
-        const targetRemaining =
-          newRemaining !== undefined && newRemaining > 0 ? newRemaining : d.amount;
-        const newStatus: DebtStatus =
-          targetRemaining < d.amount ? 'partial' : 'unpaid';
+    const target = debts.find((d) => d.id === id);
+    if (!target) return;
 
-        const updated: Debt = {
-          ...d,
-          remainingAmount: targetRemaining,
-          status: newStatus,
-          updatedAt: new Date().toISOString(),
-        };
-        updatedObj = updated;
-        return updated;
-      })
-    );
-    if (updatedObj) {
-      try {
-        await setDoc(doc(db, 'debts', id), cleanForFirestore(updatedObj), { merge: true });
-      } catch (e) {
-        console.error('Reactivate debt firestore error:', e);
-      }
+    const targetRemaining =
+      newRemaining !== undefined && newRemaining > 0 ? Number(newRemaining) : target.amount;
+    const newStatus: DebtStatus =
+      targetRemaining < target.amount ? 'partial' : 'unpaid';
+
+    const updated: Debt = {
+      ...target,
+      remainingAmount: targetRemaining,
+      status: newStatus,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setDebts((prev) => prev.map((d) => (d.id === id ? updated : d)));
+
+    try {
+      await setDoc(doc(db, 'debts', id), cleanForFirestore(updated), { merge: true });
+    } catch (e) {
+      console.error('Reactivate debt firestore error:', e);
     }
   };
 
@@ -1559,17 +1543,25 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
   const deleteTransaction = async (id: string) => {
     const tx = transactions.find((t) => t.id === id);
     if (!tx) return;
+
+    const targetDebt = debts.find((d) => d.id === tx.debtId);
     let updatedDebt: Debt | null = null;
-    setDebts((prev) =>
-      prev.map((d) => {
-        if (d.id !== tx.debtId) return d;
-        const restoredRemaining = Math.min(d.amount, d.remainingAmount + tx.amount);
-        const newStatus = restoredRemaining === d.amount ? 'unpaid' : 'partial';
-        updatedDebt = { ...d, remainingAmount: restoredRemaining, status: newStatus, updatedAt: new Date().toISOString() };
-        return updatedDebt;
-      })
-    );
+    if (targetDebt) {
+      const restoredRemaining = Math.min(targetDebt.amount, targetDebt.remainingAmount + tx.amount);
+      const newStatus = restoredRemaining === targetDebt.amount ? 'unpaid' : 'partial';
+      updatedDebt = {
+        ...targetDebt,
+        remainingAmount: restoredRemaining,
+        status: newStatus,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
     setTransactions((prev) => prev.filter((t) => t.id !== id));
+    if (updatedDebt) {
+      setDebts((prev) => prev.map((d) => (d.id === tx.debtId ? updatedDebt! : d)));
+    }
+
     try {
       await deleteDoc(doc(db, 'transactions', id));
       if (updatedDebt) {
