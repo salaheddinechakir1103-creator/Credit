@@ -65,6 +65,7 @@ interface CreditManagerContextType {
   reactivateDebt: (id: string, newRemaining?: number) => Promise<void>;
   deleteDebt: (id: string) => void;
   consolidateCustomerDebts: (customerId: string) => Promise<void>;
+  splitDebt: (debtId: string, parts: Array<{ category: string; amount: number; remainingAmount: number; date: string; notes: string }>) => Promise<void>;
 
   // Invoices & Automatic Debt Generation
   createInvoice: (invoiceData: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt' | 'debtId'> & { debtId?: string }) => Promise<Invoice>;
@@ -1093,6 +1094,42 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const splitDebt = async (
+    debtId: string,
+    parts: Array<{ category: string; amount: number; remainingAmount: number; date: string; notes: string }>
+  ) => {
+    const original = debts.find((d) => d.id === debtId);
+    if (!original || parts.length === 0) return;
+
+    const newDebts: Debt[] = parts.map((p, idx) => ({
+      id: `debt-${Date.now()}-${idx}-${Math.floor(Math.random() * 1000)}`,
+      customerId: original.customerId,
+      type: original.type,
+      amount: p.amount,
+      remainingAmount: p.remainingAmount,
+      date: p.date || original.date,
+      status: p.remainingAmount <= 0 ? 'paid' : p.remainingAmount < p.amount ? 'partial' : 'unpaid',
+      category: p.category,
+      notes: p.notes,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }));
+
+    setDebts((prev) => [
+      ...newDebts,
+      ...prev.filter((d) => d.id !== debtId),
+    ]);
+
+    try {
+      await deleteDoc(doc(db, 'debts', debtId));
+      for (const nd of newDebts) {
+        await setDoc(doc(db, 'debts', nd.id), cleanForFirestore(nd));
+      }
+    } catch (e) {
+      console.error('Split debt firestore error:', e);
+    }
+  };
+
   // Invoices Management & Automatic Debt Increment
   const createInvoice = async (
     data: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt' | 'debtId'> & { debtId?: string }
@@ -1734,6 +1771,7 @@ export const CreditManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         reactivateDebt,
         deleteDebt,
         consolidateCustomerDebts,
+        splitDebt,
         createInvoice,
         updateInvoice,
         deleteInvoice,

@@ -12,6 +12,9 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   FileText,
+  Building,
+  AlertCircle,
+  Sparkles,
 } from 'lucide-react';
 import { useCreditManager } from '../context/CreditManagerContext';
 import {
@@ -44,6 +47,15 @@ export const MOROCCAN_BANKS = [
   'بنك آخر...',
 ];
 
+const SUPPLIER_SUGGESTIONS = [
+  'مورد بضاعة وسلع',
+  'شركة التوزيع والشحن',
+  'إيجار المحل أو المستودع',
+  'مصاريف نقل ولوجستيك',
+  'فاتورة كهرباء وماء ومصاريف',
+  'معدات وتجهيزات',
+];
+
 export const AddCommercialPaperModal: React.FC<AddCommercialPaperModalProps> = ({
   paperToEdit,
   defaultCustomerId,
@@ -56,17 +68,25 @@ export const AddCommercialPaperModal: React.FC<AddCommercialPaperModalProps> = (
 
   const isEditing = Boolean(paperToEdit);
 
-  // Core Form states
-  const [type, setType] = useState<CommercialPaperType>(paperToEdit?.type || defaultType);
+  // Core Form states: Direction is primary
   const [direction, setDirection] = useState<CommercialPaperDirection>(
     paperToEdit?.direction || defaultDirection
   );
+  const [type, setType] = useState<CommercialPaperType>(paperToEdit?.type || defaultType);
   const [amount, setAmount] = useState<string>(paperToEdit ? String(paperToEdit.amount) : '');
   const [number, setNumber] = useState<string>(paperToEdit?.number || '');
+
+  // For 'in' (وارد لي ليا): customer is drawer
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(
     paperToEdit?.customerId || defaultCustomerId || ''
   );
   const [drawer, setDrawer] = useState<string>(paperToEdit?.drawer || '');
+
+  // For 'out' (صادر لي عليا): supplier / beneficiary
+  const [beneficiary, setBeneficiary] = useState<string>(
+    paperToEdit?.beneficiary || (paperToEdit?.direction === 'out' ? paperToEdit?.drawer : '') || ''
+  );
+
   const [bankName, setBankName] = useState<string>(
     paperToEdit?.bankName || MOROCCAN_BANKS[0]
   );
@@ -77,12 +97,14 @@ export const AddCommercialPaperModal: React.FC<AddCommercialPaperModalProps> = (
   );
 
   // Optional extra fields
-  const [showExtras, setShowExtras] = useState<boolean>(
-    Boolean(paperToEdit?.notes || paperToEdit?.frontPhotoUrl || paperToEdit?.direction === 'out')
-  );
   const [notes, setNotes] = useState<string>(paperToEdit?.notes || '');
   const [frontPhotoUrl, setFrontPhotoUrl] = useState<string>(paperToEdit?.frontPhotoUrl || '');
-  const [status, setStatus] = useState<CommercialPaperStatus>(paperToEdit?.status || 'safe');
+  const [status, setStatus] = useState<CommercialPaperStatus>(
+    paperToEdit?.status || 'safe'
+  );
+  const [showExtras, setShowExtras] = useState<boolean>(
+    Boolean(paperToEdit?.notes || paperToEdit?.frontPhotoUrl)
+  );
 
   // Customer selection auto-fill
   const handleCustomerSelect = (custId: string) => {
@@ -126,8 +148,19 @@ export const AddCommercialPaperModal: React.FC<AddCommercialPaperModalProps> = (
       return;
     }
 
-    const effectiveDrawer = drawer.trim() || (selectedCustomerId ? customers.find((c) => c.id === selectedCustomerId)?.name : '') || 'زبون عام';
-    const effectiveBeneficiary = direction === 'in' ? userProfile.businessName || 'المتجر' : effectiveDrawer;
+    // Determine drawer and beneficiary based on direction
+    let finalDrawer = '';
+    let finalBeneficiary = '';
+
+    if (direction === 'in') {
+      // شيك لي ليا: الساحب هو الزبون، والمستفيد هو أنا
+      finalDrawer = drawer.trim() || (selectedCustomerId ? customers.find((c) => c.id === selectedCustomerId)?.name : '') || 'زبون عام';
+      finalBeneficiary = userProfile.businessName || 'المتجر';
+    } else {
+      // شيك لي عليا: الساحب هو أنا، والمستفيد هو المورد
+      finalDrawer = userProfile.businessName || 'المتجر';
+      finalBeneficiary = beneficiary.trim() || 'مورد عام';
+    }
 
     if (isEditing && paperToEdit) {
       await updateCommercialPaper(paperToEdit.id, {
@@ -137,9 +170,9 @@ export const AddCommercialPaperModal: React.FC<AddCommercialPaperModalProps> = (
         amount: numericAmount,
         dueDate,
         bankName: effectiveBank,
-        drawer: effectiveDrawer,
-        customerId: selectedCustomerId || undefined,
-        beneficiary: effectiveBeneficiary,
+        drawer: finalDrawer,
+        customerId: direction === 'in' ? selectedCustomerId || undefined : undefined,
+        beneficiary: finalBeneficiary,
         status,
         notes: notes.trim(),
         frontPhotoUrl: frontPhotoUrl || undefined,
@@ -153,9 +186,9 @@ export const AddCommercialPaperModal: React.FC<AddCommercialPaperModalProps> = (
         dueDate,
         issueDate: new Date().toISOString().split('T')[0],
         bankName: effectiveBank,
-        drawer: effectiveDrawer,
-        customerId: selectedCustomerId || undefined,
-        beneficiary: effectiveBeneficiary,
+        drawer: finalDrawer,
+        customerId: direction === 'in' ? selectedCustomerId || undefined : undefined,
+        beneficiary: finalBeneficiary,
         status,
         notes: notes.trim(),
         frontPhotoUrl: frontPhotoUrl || undefined,
@@ -165,7 +198,7 @@ export const AddCommercialPaperModal: React.FC<AddCommercialPaperModalProps> = (
     onClose();
   };
 
-  // Calculate days diff preview
+  // Due calculation for chip
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const due = new Date(dueDate);
@@ -175,18 +208,34 @@ export const AddCommercialPaperModal: React.FC<AddCommercialPaperModalProps> = (
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden my-6 animate-in fade-in zoom-in-95 duration-150">
-        {/* Simple & Clean Header */}
+        {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-              <Landmark className="w-5 h-5" />
+            <div
+              className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
+                direction === 'in'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-rose-50 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400'
+              }`}
+            >
+              {direction === 'in' ? (
+                <ArrowDownLeft className="w-5 h-5" />
+              ) : (
+                <ArrowUpRight className="w-5 h-5" />
+              )}
             </div>
             <div>
               <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
-                {isEditing ? 'تعديل السند البنكي' : 'تسجيل شيك أو كمبيالة جديدة'}
+                {isEditing
+                  ? 'تعديل بيانات السند البنكي'
+                  : direction === 'in'
+                  ? 'تسجيل شيك أو كمبيالة (لي ليا / مقبوض)'
+                  : 'تسجيل شيك أو كمبيالة (لي عليا / صادر لمورد)'}
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                أدخل المعلومات الأساسية لتتبع موعد الصرف والتنبيهات
+                {direction === 'in'
+                  ? 'شيك استلمته من زبون وسيدخل في حسابك البنكي'
+                  : 'شيك حررته وأعطيته لمورد وسيُخصم من حسابك البنكي'}
               </p>
             </div>
           </div>
@@ -199,9 +248,71 @@ export const AddCommercialPaperModal: React.FC<AddCommercialPaperModalProps> = (
           </button>
         </div>
 
-        {/* The Clean Form */}
+        {/* The Form */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 text-start">
-          {/* 1. Type Switcher: Chèque vs Traite */}
+          {/* STEP 1: Main Direction Picker (لي ليا VS لي عليا) - Very Prominent */}
+          <div>
+            <label className="block text-xs font-black text-slate-700 dark:text-slate-300 mb-2">
+              نوع المعاملة (واش الشيك لي ليا ولا لي عليا؟) *
+            </label>
+            <div className="grid grid-cols-2 gap-2.5">
+              {/* Option 1: لي ليا */}
+              <button
+                type="button"
+                onClick={() => setDirection('in')}
+                className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-start text-start cursor-pointer ${
+                  direction === 'in'
+                    ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/50 text-emerald-950 dark:text-emerald-100 ring-2 ring-emerald-500/20 shadow-sm'
+                    : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div
+                    className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                      direction === 'in'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-200 dark:bg-slate-700 text-slate-600'
+                    }`}
+                  >
+                    <ArrowDownLeft className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-xs font-black">شيك لي ليا (مقبوض)</span>
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  زبون عطاني شيك باش نقبضو وندخلو لحسابي
+                </p>
+              </button>
+
+              {/* Option 2: لي عليا */}
+              <button
+                type="button"
+                onClick={() => setDirection('out')}
+                className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-start text-start cursor-pointer ${
+                  direction === 'out'
+                    ? 'border-rose-500 bg-rose-50/70 dark:bg-rose-950/50 text-rose-950 dark:text-rose-100 ring-2 ring-rose-500/20 shadow-sm'
+                    : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div
+                    className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                      direction === 'out'
+                        ? 'bg-rose-600 text-white'
+                        : 'bg-slate-200 dark:bg-slate-700 text-slate-600'
+                    }`}
+                  >
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-xs font-black">شيك لي عليا (صادر)</span>
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  شيك حررتو لمورد باش يتقتطع من حسابي
+                </p>
+              </button>
+            </div>
+          </div>
+
+          {/* STEP 2: Paper Type (شيك بنكي Chèque VS كمبيالة لاطريت Traite) */}
           <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl">
             <button
               type="button"
@@ -225,11 +336,11 @@ export const AddCommercialPaperModal: React.FC<AddCommercialPaperModalProps> = (
               }`}
             >
               <CreditCard className="w-4 h-4" />
-              <span>كمبيالة (لاطريت)</span>
+              <span>كمبيالة (لاطريت Traite)</span>
             </button>
           </div>
 
-          {/* 2. Amount Input (Prominent & Clear) */}
+          {/* STEP 3: Amount Input */}
           <div>
             <label className="block text-xs font-extrabold text-slate-800 dark:text-slate-200 mb-1">
               المبلغ بالدرهم ({config.currency}) *
@@ -255,39 +366,72 @@ export const AddCommercialPaperModal: React.FC<AddCommercialPaperModalProps> = (
             </div>
           </div>
 
-          {/* 3. Customer / Drawer Selection */}
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
-              الزبون أو صاحب الشيك *
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {/* Dropdown list of customers */}
-              <select
-                value={selectedCustomerId}
-                onChange={(e) => handleCustomerSelect(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold dark:text-white"
-              >
-                <option value="">-- اختر من قائمة الزبائن --</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} {c.phone ? `(${c.phone})` : ''}
-                  </option>
-                ))}
-              </select>
+          {/* STEP 4: Party Name (Dynamic based on In vs Out) */}
+          {direction === 'in' ? (
+            <div className="space-y-2 p-3 bg-emerald-50/50 dark:bg-emerald-950/30 rounded-2xl border border-emerald-100 dark:border-emerald-900/40">
+              <label className="block text-xs font-black text-emerald-900 dark:text-emerald-200">
+                الزبون صاحب الشيك (الذي سلّمك الشيك) *
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {/* Dropdown list of customers */}
+                <select
+                  value={selectedCustomerId}
+                  onChange={(e) => handleCustomerSelect(e.target.value)}
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold dark:text-white"
+                >
+                  <option value="">-- اختر من قائمة الزبائن --</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.phone ? `(${c.phone})` : ''}
+                    </option>
+                  ))}
+                </select>
 
-              {/* Or manual drawer name */}
+                {/* Manual name */}
+                <input
+                  type="text"
+                  required
+                  value={drawer}
+                  onChange={(e) => setDrawer(e.target.value)}
+                  placeholder="أو اكتب اسم الزبون هنا..."
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold dark:text-white"
+                />
+              </div>
+              <p className="text-[10px] text-slate-500">
+                سيتم ربط الشيك بهذا الزبون ويمكنك إرسال تذكير له عند قرب موعد الصرف.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2 p-3 bg-rose-50/50 dark:bg-rose-950/30 rounded-2xl border border-rose-100 dark:border-rose-900/40">
+              <label className="block text-xs font-black text-rose-900 dark:text-rose-200">
+                المورد أو المستفيد (الذي حررت له الشيك) *
+              </label>
               <input
                 type="text"
                 required
-                value={drawer}
-                onChange={(e) => setDrawer(e.target.value)}
-                placeholder="أو اكتب اسم الشخص هنا..."
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold dark:text-white"
+                value={beneficiary}
+                onChange={(e) => setBeneficiary(e.target.value)}
+                placeholder="مثال: شركة التوزيع الغذائي، مورد المواد..."
+                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold dark:text-white"
               />
+              {/* Quick suggestions */}
+              <div className="flex items-center gap-1 flex-wrap text-[10px] pt-1">
+                <span className="text-slate-400">اقتراحات سريعة:</span>
+                {SUPPLIER_SUGGESTIONS.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setBeneficiary(item)}
+                    className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-rose-50 text-slate-700 dark:text-slate-300 transition-all cursor-pointer"
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* 4. Number & Bank */}
+          {/* STEP 5: Number & Bank */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
@@ -324,19 +468,23 @@ export const AddCommercialPaperModal: React.FC<AddCommercialPaperModalProps> = (
                   required
                   value={customBank}
                   onChange={(e) => setCustomBank(e.target.value)}
-                  placeholder="اسم البنك..."
+                  placeholder="اكتب اسم البنك..."
                   className="mt-1.5 w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold dark:text-white"
                 />
               )}
             </div>
           </div>
 
-          {/* 5. Due Date (موعد الصرف) with quick chips */}
+          {/* STEP 6: Due Date (موعد الصرف أو السحب) */}
           <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                 <Calendar className="w-4 h-4 text-indigo-600" />
-                <span>تاريخ الصرف (موعد الدفع في البنك) *</span>
+                <span>
+                  {direction === 'in'
+                    ? 'تاريخ الصرف (موعد صرف الشيك في البنك) *'
+                    : 'تاريخ الاستحقاق (موعد سحب الشيك من حسابك) *'}
+                </span>
               </label>
               {dueDate && (
                 <span
@@ -351,7 +499,7 @@ export const AddCommercialPaperModal: React.FC<AddCommercialPaperModalProps> = (
                   {diffDays < 0
                     ? `فات موعده بـ ${Math.abs(diffDays)} يوم`
                     : diffDays === 0
-                    ? 'اليوم موعد الصرف!'
+                    ? 'اليوم موعد الصرف/السحب!'
                     : `متبقي ${diffDays} يوم`}
                 </span>
               )}
@@ -370,10 +518,11 @@ export const AddCommercialPaperModal: React.FC<AddCommercialPaperModalProps> = (
               <span className="text-slate-400">تحديد سريع:</span>
               {[
                 { label: 'اليوم', days: 0 },
-                { label: 'أسبوع', days: 7 },
+                { label: 'أسبوع (7 أيام)', days: 7 },
                 { label: '15 يوماً', days: 15 },
                 { label: 'شهر (30 يوم)', days: 30 },
                 { label: 'شهران (60 يوم)', days: 60 },
+                { label: '3 أشهر (90 يوم)', days: 90 },
               ].map((item) => (
                 <button
                   key={item.days}
@@ -387,75 +536,124 @@ export const AddCommercialPaperModal: React.FC<AddCommercialPaperModalProps> = (
             </div>
           </div>
 
-          {/* 6. Expandable Optional Extras (Notes, Direction, Photo) */}
+          {/* STEP 7: Status Selection */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              حالة السند الحالية:
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {direction === 'in' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setStatus('safe')}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 cursor-pointer ${
+                      status === 'safe'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <span>في الخزينة (بيدي)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatus('deposited')}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 cursor-pointer ${
+                      status === 'deposited'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <span>مودع بالبنك</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatus('cashed')}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 cursor-pointer ${
+                      status === 'cashed'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <span>تم الصرف في الحساب</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setStatus('safe')}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 cursor-pointer ${
+                      status === 'safe'
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <span>معلق لدى المورد</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatus('cashed')}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 cursor-pointer ${
+                      status === 'cashed'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <span>تم الخصم من حسابي</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatus('rejected')}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 cursor-pointer ${
+                      status === 'rejected'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <span>مرفوض أو مسترجع</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* STEP 8: Extras (Notes & Photo) */}
           <div className="pt-1">
             <button
               type="button"
               onClick={() => setShowExtras(!showExtras)}
               className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
             >
-              <span>{showExtras ? 'إخفاء الخيارات الإضافية' : '+ خيارات إضافية (ملاحظة، صورة الشيك، الاتجاه)'}</span>
+              <span>{showExtras ? 'إخفاء الملاحظات والصورة' : '+ إضافة ملاحظات أو صورة الشيك (اختياري)'}</span>
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showExtras ? 'rotate-180' : ''}`} />
             </button>
 
             {showExtras && (
               <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3 text-xs animate-in fade-in duration-150">
-                {/* In or Out direction */}
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    اتجاه السند:
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setDirection('in')}
-                      className={`py-1.5 px-3 rounded-xl font-bold flex items-center justify-center gap-1 cursor-pointer ${
-                        direction === 'in'
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
-                      }`}
-                    >
-                      <ArrowDownLeft className="w-3.5 h-3.5" />
-                      <span>مقبوض من زبون</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDirection('out')}
-                      className={`py-1.5 px-3 rounded-xl font-bold flex items-center justify-center gap-1 cursor-pointer ${
-                        direction === 'out'
-                          ? 'bg-rose-600 text-white'
-                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
-                      }`}
-                    >
-                      <ArrowUpRight className="w-3.5 h-3.5" />
-                      <span>صادر لمورد</span>
-                    </button>
-                  </div>
-                </div>
-
                 {/* Notes */}
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    ملاحظات (اختياري):
+                    ملاحظات:
                   </label>
                   <input
                     type="text"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="مثال: تسديد دفعة طلبيات السلع..."
-                    className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl dark:text-white"
+                    placeholder="مثال: تسديد دفعة طلبيات السلع رقم 4..."
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl dark:text-white"
                   />
                 </div>
 
                 {/* Photo attachment */}
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    صورة الشيك (اختياري):
+                    صورة الشيك / الكمبيالة:
                   </label>
                   <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-100">
-                      <Camera className="w-4 h-4 text-indigo-600" />
-                      <span className="font-bold">إرفاق صورة</span>
+                    <label className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-all">
+                      <Camera className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      <span className="font-bold">إرفاق أو تصوير الشيك</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -468,14 +666,14 @@ export const AddCommercialPaperModal: React.FC<AddCommercialPaperModalProps> = (
                         <img
                           src={frontPhotoUrl}
                           alt="Cheque preview"
-                          className="w-10 h-8 object-cover rounded-lg border border-slate-300"
+                          className="w-12 h-9 object-cover rounded-lg border border-slate-300"
                         />
                         <button
                           type="button"
                           onClick={() => setFrontPhotoUrl('')}
-                          className="text-rose-500 hover:underline"
+                          className="text-rose-500 hover:underline font-bold"
                         >
-                          حذف
+                          حذف الصورة
                         </button>
                       </div>
                     )}
@@ -485,21 +683,32 @@ export const AddCommercialPaperModal: React.FC<AddCommercialPaperModalProps> = (
             )}
           </div>
 
-          {/* Form Submit & Cancel buttons */}
-          <div className="pt-2 flex items-center gap-2">
+          {/* Submit Actions */}
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
+              className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
             >
               إلغاء
             </button>
+
             <button
               type="submit"
-              className="flex-1 py-2.5 px-4 rounded-xl text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/30 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+              className={`px-5 py-2.5 rounded-xl text-xs font-black text-white shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer ${
+                direction === 'in'
+                  ? 'bg-emerald-600 hover:bg-emerald-700'
+                  : 'bg-rose-600 hover:bg-rose-700'
+              }`}
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>{isEditing ? 'حفظ التعديلات' : `تسجيل ${type === 'cheque' ? 'الشيك' : 'الكمبيالة'}`}</span>
+              <span>
+                {isEditing
+                  ? 'حفظ التعديلات'
+                  : direction === 'in'
+                  ? 'تسجيل الشيك (لي ليا)'
+                  : 'تسجيل الشيك (لي عليا)'}
+              </span>
             </button>
           </div>
         </form>

@@ -119,14 +119,38 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   تنبيه استحقاق الشيكات والكمبيالات (Les Échéances)
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-slate-950">
-                  {dueSoonPapers.length} أوراق
+                  {dueSoonPapers.length} شيكات
                 </span>
               </div>
-              <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-0.5">
-                لديك {dueSoonPapers.length} شيكات / كمبيالات تستحق الصرف قريباً بقيمة إجمالية{' '}
-                <span className="font-mono font-black text-amber-950 dark:text-amber-100">
-                  {formatCurrency(totalDueSoonPapersAmount, config.currency, config.language)}
-                </span>
+              <p className="text-xs text-amber-900 dark:text-amber-200/90 mt-1 flex flex-wrap items-center gap-2">
+                {dueSoonPapers.some((p) => p.direction === 'in') && (
+                  <span className="inline-flex items-center gap-1 font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
+                    <span>لي ليا ستصرف:</span>
+                    <span className="font-mono font-black">
+                      {formatCurrency(
+                        dueSoonPapers
+                          .filter((p) => p.direction === 'in')
+                          .reduce((s, p) => s + p.amount, 0),
+                        config.currency,
+                        config.language
+                      )}
+                    </span>
+                  </span>
+                )}
+                {dueSoonPapers.some((p) => p.direction === 'out') && (
+                  <span className="inline-flex items-center gap-1 font-bold text-rose-800 dark:text-rose-300 bg-rose-100 dark:bg-rose-950/60 px-2 py-0.5 rounded-md">
+                    <span>لي عليا يجب توفيرها:</span>
+                    <span className="font-mono font-black">
+                      {formatCurrency(
+                        dueSoonPapers
+                          .filter((p) => p.direction === 'out')
+                          .reduce((s, p) => s + p.amount, 0),
+                        config.currency,
+                        config.language
+                      )}
+                    </span>
+                  </span>
+                )}
               </p>
             </div>
           </div>
